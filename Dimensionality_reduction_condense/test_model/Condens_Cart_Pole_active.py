@@ -539,11 +539,11 @@ def eigen_decomposition(C_hat):
 
 eigenvectors, D = eigen_decomposition(C_hat)
 
-T1 , T2 =select_active_inactive_subspaces_1(D, eigenvectors,  percentage=0.02)
+T1 , T2 =select_active_inactive_subspaces_1(D, eigenvectors,  percentage=0.1)
 
 # Load the saved T1 and T2
-np.save('T1_G2.npy',T1)
-np.save('T2_G2.npy',T2)
+np.save('T1_G10.npy',T1)
+np.save('T2_G10.npy',T2)
 
 
 

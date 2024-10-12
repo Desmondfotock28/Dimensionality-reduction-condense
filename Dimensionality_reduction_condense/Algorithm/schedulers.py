@@ -3,6 +3,8 @@ from collections.abc import Iterable
 from itertools import accumulate, repeat
 from operator import mul
 from typing import Generic, TypeVar, Union
+from typing import Iterable, Union, Tuple
+
 
 import numpy as np
 
@@ -157,7 +159,7 @@ class Chain(Scheduler[ScType]):
 
     def __init__(
         self,
-        schedulers: Iterable[Union[Scheduler[ScType], tuple[Scheduler[ScType], int]]],
+        schedulers: Iterable[Union[Scheduler[ScType], Tuple[Scheduler[ScType], int]]],
     ) -> None:
         """Builds the chain of schedulers.
 

@@ -501,8 +501,8 @@ plt.show()
 
 
 # Load the saved T1 and T2
-T1 = np.load('T1_G2.npy')
-T2 = np.load('T2_G2.npy')
+T1 = np.load('T1_nv_new.npy')
+T2 = np.load('T2_nv_new.npy')
 
 
 nv = T1.shape[1]

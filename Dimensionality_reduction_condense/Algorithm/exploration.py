@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 
 from seeding import RngType
-from .schedulers import NoScheduling, Scheduler
+from schedulers import NoScheduling, Scheduler
 
 
 class ExplorationStrategy(ABC):

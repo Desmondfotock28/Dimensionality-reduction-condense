@@ -246,9 +246,9 @@ class MPCfunapprox(ParamMPCformulation):
         param_val = param_val if param_val is not None else self.P_learn
         if constrained_updates:
        
-            self.P_learn = self.Stiefel_param_update(dJ , param_val, lr)
-            #self.P_learn = self.constraint_param_update(dJ, param_val)
-            #self.P_learn = self.gramm_schmidt()
+            #self.P_learn = self.Stiefel_param_update(dJ , param_val, lr)
+            self.P_learn = self.constraint_param_update(dJ, param_val)
+            self.P_learn = self.gramm_schmidt()
             self.compute_null_space()
         else:
             dP = -self.lr[0] * dJ    #need to check shape 

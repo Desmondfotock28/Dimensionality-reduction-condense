@@ -3,10 +3,11 @@ import numpy as np
 
 
 class MPCQlearning:
-    def __init__(self, mpc, learning_params ):
+    def __init__(self, mpc, learning_params,exploration_strategy):
         # hyperparameters
         self.mpc = mpc
         self._parse_agent_params(**learning_params)
+        self.exploration_strategy = exploration_strategy  # New exploration strategy
 
     def train(self, mode = "train"):
         """
@@ -26,33 +27,34 @@ class MPCQlearning:
         self.mpc.reset(obs)
         del_J = 0.0
         td_avg = 0
+        self.policy_theta =[]
         self.rollout_return = 0
         self.average_td = 0
         u_tilda_k ,  usol  = self.mpc.P(obs)
-        T2 = self.mpc.Pf[2*self.mpc.obs_dim + self.mpc.action_dim + (self.mpc.N * self.mpc.action_dim - self.mpc.nv): ]
-        T2 = csd.reshape(T2,self.mpc.N*self.mpc.action_dim,(self.mpc.N *self.mpc.action_dim - self.mpc.nv))
-        self.mpc.Pf[2*self.mpc.obs_dim + self.mpc.action_dim :(self.mpc.N * self.mpc.action_dim - self.mpc.nv)+
-                         2*self.mpc.obs_dim + self.mpc.action_dim] = csd.mtimes(T2.T, usol)
-        epsilon =0.01
-        
+        T2 = self._extract_T2_matrix(usol)
+        self._update_w_tilda(T2, usol)
+        u_star =[]
         for it in range(self.mpc.train_it):
             
-            
-            if np.random.random() < epsilon:
-                act0 = np.array(np.random.uniform(-80, 80)).reshape(1,1)
+            if self.exploration_strategy.can_explore():
+                act0 = np.array(self.exploration_strategy.perturbation('random')).reshape(1,1)
                 soln = None
-            else: 
-                act0, action, add_info = self.mpc.act_forward(obs,  mode=mode)
+                print(act0)
+
+            else:
+                act0, action, add_info = self.mpc.act_forward(obs, mode=mode)
+
                 soln = add_info["soln"]
-                    #update u_tilda_k using feedback law 
+
                 u_tilda_k = np.vstack([action[1:], action[-1, :]])
 
-                    #update w_k 
+                self._update_w_tilda(T2, u_tilda_k)
 
-                self.mpc.Pf[2*self.mpc.obs_dim + self.mpc.action_dim :(self.mpc.N * self.mpc.action_dim - self.mpc.nv)+
-                                2*self.mpc.obs_dim + self.mpc.action_dim] = T2.T@u_tilda_k
+                u_star.append(act0)
                 
-                    
+                #store the optimal policy
+                u_star.append(act0)
+                   
             #calculate and record the stage cost L_θ (s_k,a_k ), 
             next_state, next_obs, reward, _ = self.mpc.model.step(act0)
 
@@ -79,12 +81,26 @@ class MPCQlearning:
             state = next_state.copy()
             obs = next_obs.copy()
 
+            # Step the exploration strategy to decay epsilon
+            self.exploration_strategy.step()
          # RL update step
+        self.policy_theta.append(u_star)
         self.mpc.param_update(del_J, constrained_updates=self.constrained_updates)
         self.average_td = td_avg / self.mpc.train_it
         print(f"Averaged TD error: {td_avg / self.mpc.train_it}")
-       
 
+
+    def _extract_T2_matrix(self, usol):
+        T2 = self.mpc.Pf[2 * self.mpc.obs_dim + self.mpc.action_dim +
+                         (self.mpc.N * self.mpc.action_dim - self.mpc.nv):]
+        return csd.reshape(T2, self.mpc.N * self.mpc.action_dim,
+                           (self.mpc.N * self.mpc.action_dim - self.mpc.nv))
+
+    def _update_w_tilda(self, T2, u_tilda_k):
+        self.mpc.Pf[2 * self.mpc.obs_dim + self.mpc.action_dim:
+                    (self.mpc.N * self.mpc.action_dim - self.mpc.nv) +
+                    2 * self.mpc.obs_dim + self.mpc.action_dim] = T2.T @ u_tilda_k   
+    
     def _parse_agent_params(self, lr, tr, train_params, constrained_updates=False):
         self.lr = lr
         self.tr = tr

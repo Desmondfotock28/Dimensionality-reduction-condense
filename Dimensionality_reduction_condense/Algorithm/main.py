@@ -10,10 +10,11 @@ from parametric_mpc_condense import  MPCfunapprox
 from quadratics_cost_condense import Quadratic_stage_cost_model
 from MPCQlearning_condense import MPCQlearning
 from IPython.display import HTML
+from exploration import EpsilonGreedyExploration
 
 
 class MPCfunapprox_ex(MPCfunapprox, ParamMPCformulation):
-    def __init__(self, model, cost_model, agent_params, opt_params, train_it, seed=1):
+    def __init__(self, model, cost_model, agent_params, opt_params, train_it,exploration_strategy, seed=1):
         # Step 1: Initialize the parent class (MPCfunapprox)
         super().__init__(model, agent_params,  opt_params)
         self.train_it = train_it
@@ -22,7 +23,7 @@ class MPCfunapprox_ex(MPCfunapprox, ParamMPCformulation):
         self._parse_agent_params(**agent_params)
         
         # Step 3: Initialize the learning module
-        self.learning_module = MPCQlearning(self, self.learning_params)
+        self.learning_module = MPCQlearning(self, self.learning_params,exploration_strategy)
         
         # Step 4: Initialize RL update formulation
         self.constraint_param_opt(self.learning_module.lr, self.learning_module.tr)
@@ -105,6 +106,14 @@ def test_mpc_policy(env, policy, episodes=5):
     return display_video(frames)
 
 
+# Initialize the EpsilonGreedyExploration strategy
+exploration_strategy = EpsilonGreedyExploration(
+    epsilon=0.1,  # Initial epsilon
+    strength=80,  # Perturbation strength
+    hook="timestep",  # Step every timestep
+    seed=42  # For reproducibility
+)
+
 env = CartPole('rgb_array')
 env.reset()
 
@@ -157,16 +166,16 @@ agent_params= {
             "lr": 1e-3,
             "tr": 0.2,
             "train_params": {
-                "iterations":500,
+                "iterations":30,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 500
+n_iterations = 30
 
 # Agent init
-agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps)
+agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_strategy)
 
 # Test run 
 _, obs = env.reset()
@@ -192,6 +201,8 @@ for it in range(n_iterations):
     stats['Returns'].append(agent.learning_module.rollout_return)
     stats['TD Loss'].append(agent.learning_module.average_td)
 
+U_opt = agent.learning_module.policy_theta
+np.save('U_opt1', U_opt)
 
 T1 =  agent.P_learn
 T1 = np.array(T1).reshape(N*nu , nv , order='F')
@@ -202,8 +213,8 @@ w  = np.array(w).reshape( (N *nu - nv ), 1 )
 
 plot_stats(stats)
    
-np.save('T1_nv100_new.npy', T1)
-np.save('T2_nv100_new.npy', T2)
+np.save('T1_nv_new.npy', T1)
+np.save('T2_nv_new.npy', T2)
 
 test_mpc_policy(env, agent)
 
