@@ -487,8 +487,7 @@ Ts = 0.01
 sim_time = 2
 x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
 
-#np.save('x_ol_n', x_ol)
-#np.save('u_cl_n', u_cl)
+
 
 cost_n_np = [float(cost.full().flatten()) for cost in cost_nn]
 plt.figure(figsize=(10, 5))
@@ -501,14 +500,11 @@ plt.grid(True)
 plt.show()
 
 
-#T1 = np.load('dominant_active.npy')
-#T2 = null_space(T1.T)
 # Load the saved T1 and T2
-#T1 = np.load('T1_G2.npy')
-#T2 = np.load('T2_G2.npy')
+T1 = np.load('T1_G2.npy')
+T2 = np.load('T2_G2.npy')
 
-T1 = np.load('T1_nv_new.npy')
-T2 = np.load('T2_nv_new.npy')
+
 nv = T1.shape[1]
 
 # parameter for initial state and parameter w 

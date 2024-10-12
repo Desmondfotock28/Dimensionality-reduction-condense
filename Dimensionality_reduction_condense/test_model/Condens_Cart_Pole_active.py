@@ -539,11 +539,11 @@ def eigen_decomposition(C_hat):
 
 eigenvectors, D = eigen_decomposition(C_hat)
 
-T1 , T2 =select_active_inactive_subspaces_1(D, eigenvectors,  percentage=0.03)
+T1 , T2 =select_active_inactive_subspaces_1(D, eigenvectors,  percentage=0.02)
 
 # Load the saved T1 and T2
-np.save('T1_G3.npy',T1)
-np.save('T2_G3.npy',T2)
+np.save('T1_G2.npy',T1)
+np.save('T2_G2.npy',T2)
 
 
 
@@ -560,7 +560,7 @@ V = SX.sym("V", nv, 1)
 
 # penalty  variables for inactive subspace w 
 mu = SX.sym("mu", 1, 1)
-lb_Mu = -1.0
+lb_Mu = 0.0
 ub_Mu = 1.0
 
 U_a = T1@V-mu*T2@P_val[nx:]
