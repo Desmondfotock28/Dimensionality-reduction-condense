@@ -39,7 +39,7 @@ class MPCQlearning:
             if self.exploration_strategy.can_explore():
                 act0 = np.array(self.exploration_strategy.perturbation('random')).reshape(1,1)
                 soln = None
-                print(act0)
+         
 
             else:
                 act0, action, add_info = self.mpc.act_forward(obs, mode=mode)
@@ -50,8 +50,6 @@ class MPCQlearning:
 
                 self._update_w_tilda(T2, u_tilda_k)
 
-                u_star.append(act0)
-                
                 #store the optimal policy
                 u_star.append(act0)
                    
