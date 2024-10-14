@@ -50,8 +50,11 @@ R = R * np.diag([0.001])
 x0 =  np.array([np.pi, 1,0, 0])  
 
 
-T1_0 = np.load('T1_G10.npy')
-T2_0 = np.load('T2_G10.npy')
+#T1_0 = np.load('T1_G10.npy')
+#T2_0 = np.load('T2_G10.npy')
+
+T1_0 = np.load('dominant_active.npy')
+T2_0 = null_space(T1.T)
 
 nv = T1_0.shape[1]
 
