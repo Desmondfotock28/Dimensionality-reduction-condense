@@ -165,13 +165,13 @@ agent_params= {
             "lr": 1e-3,
             "tr": 0.2,
             "train_params": {
-                "iterations":50,
+                "iterations":100,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 50
+n_iterations = 100
 
 # Agent init
 agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_strategy)
