@@ -175,7 +175,7 @@ def compute_hessian(A, B, Q_base, R_base, N):
     P = dare(A, B, Q_base, R_base)[0]
     
     # Construct the block diagonal matrix Q
-    Q_blocks = [Q_base] * (N - 1) + [1000*Q]
+    Q_blocks = [Q_base] * (N - 1) + [Q]
     Q_d = np.block([[Q_blocks[i] if i == j else np.zeros_like(Q_base) for j in range(N)] for i in range(N)])
     
     # Construct the block diagonal matrix R
@@ -506,8 +506,8 @@ plt.show()
 #T1 = np.load('T1_G10.npy')
 #T2 = np.load('T2_G10.npy')
 
-T1 = np.load('T1_nv_new.npy')
-T2 = np.load('T2_nv_new.npy')
+T1 = np.load('T1.npy')
+T2 = np.load('T2.npy')
 
 
 nv = T1.shape[1]
@@ -521,8 +521,6 @@ V = SX.sym("V", nv, 1)
 
 # penalty  variables for inactive subspace w 
 mu = SX.sym("mu", 1, 1)
-lb_Mu = 0.8
-ub_Mu = 1
 
 U_a = T1@V-mu*T2@P_val[nx:]
 
@@ -560,27 +558,23 @@ def objective_cost_p():
 
 def inequality_constraints_p():
     # Constraint list
-    hmu = []  # initial input constraints  
     hu = []   # Box constraints on active inputs
     hx = []   # Box constraints on states
     hu.append(lbu- U_a )
     hu.append(U_a - ubu)
     hx.append(lbx-X_a)
     hx.append(X_a - ubx)
-    hmu.append(lb_Mu-mu)
-    hmu.append(mu-ub_Mu)
 
-    return hmu ,hu, hx
+    return hu, hx
 
 def Pi_opt_formulation_p():
     J = objective_cost_p()
-    hmu , hu, hx = inequality_constraints_p()
+    hu, hx = inequality_constraints_p()
     Hu = vertcat(*hu)
     Hx = vertcat(*hx)
-    Hmu = vertcat(*hmu)
-    G_vcsd = vertcat(*hx, *hu ,*hmu)
-    lbg =  [-np.inf] * (Hx.shape[0] + Hu.shape[0] + Hmu.shape[0])
-    ubg =  [0] * (Hx.shape[0] + Hu.shape[0] + Hmu.shape[0])
+    G_vcsd = vertcat(*hx, *hu )
+    lbg =  [-np.inf] * (Hx.shape[0] + Hu.shape[0] )
+    ubg =  [0] * (Hx.shape[0] + Hu.shape[0] )
     lbg_vcsd_p = vertcat(*lbg)
     ubg_vcsd_p = vertcat(*ubg)
 

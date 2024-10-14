@@ -149,7 +149,7 @@ u, usol = nominal_mpc.run_open_loop_mpc()
 
 w_0  =  csd.mtimes(T2_0.T, usol )
 
-n_steps = 30
+n_steps = 200
 
 seed = 1
 agent_params= {
@@ -160,16 +160,16 @@ agent_params= {
         "w": w_0,
         "eps": 0.25,
         "learning_params": {
-            "lr": 1e-4,
-            "tr": 0.1,
+            "lr": 1e-3,
+            "tr": 0.2,
             "train_params": {
-                "iterations":500,
+                "iterations":50,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 500
+n_iterations = 50
 
 # Agent init
 agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_strategy)
@@ -210,8 +210,8 @@ w  = np.array(w).reshape( (N *nu - nv ), 1 )
 
 plot_stats(stats)
    
-np.save('T1_nv_new.npy', T1)
-np.save('T2_nv_new.npy', T2)
+np.save('T1.npy', T1)
+np.save('T2.npy', T2)
 
 test_mpc_policy(env, agent)
 

@@ -153,7 +153,7 @@ class ParamMPCformulation:
         
         #G = csd.vertcat(*G)
         # Constraint list
-        hmu = []  # constraints for mu 
+       
         hu = []   # Box constraints on active inputs
         hx = []   # Box constraints on states
 
@@ -167,19 +167,16 @@ class ParamMPCformulation:
         ubu = csd.vertcat(*ubu)
         lbu = csd.vertcat (*lbu)
 
-        lb_mu = 0.8*np.ones(1)
-        ub_mu = 1.0*np.ones(1)
+        
       
 
         hx.append(lbx - X)
         hx.append(X - ubx)
         hu.append(lbu - U)
         hu.append(U - ubu)
-        #  mu constraints 
-        hmu.append(lb_mu-self.mu)
-        hmu.append(self.mu-ub_mu)
        
-        return  hx, hu, hmu 
+       
+        return  hx, hu
     
     def Pi_opt_formulation(self):
         """
@@ -190,13 +187,12 @@ class ParamMPCformulation:
         # Objective cost
         J = self.objective_cost()
     
-        hx, hu, hmu = self.inequality_constraints()
+        hx, hu = self.inequality_constraints()
         Hu = csd.vertcat(*hu)
         Hx = csd.vertcat(*hx)
-        Hmu = csd.vertcat(*hmu)
-        G_vcsd = csd.vertcat( *hx, *hu,  *hmu)
-        lbg =  [-np.inf] * (Hu.shape[0] + Hx.shape[0] + Hmu.shape[0])
-        ubg =  [0] * (Hu.shape[0] + Hx.shape[0] + Hmu.shape[0])
+        G_vcsd = csd.vertcat( *hx, *hu)
+        lbg =  [-np.inf] * (Hu.shape[0] + Hx.shape[0] )
+        ubg =  [0] * (Hu.shape[0] + Hx.shape[0])
         self.lbg_vcsd = csd.vertcat(*lbg)
         self.ubg_vcsd = csd.vertcat(*ubg)
 
@@ -225,20 +221,19 @@ class ParamMPCformulation:
             self.dLagV,
             self.dRdz,    
             self.dRdp,    
-        ) = self.build_sensitivity_Pi(J, Hu, Hx, Hmu)
+        ) = self.build_sensitivity_Pi(J, Hu, Hx)
     
     def Q_opt_formulation(self):
         # Objective cost
         J = self.objective_cost()
         g = self.equality_constraints()
-        hu, hx, hmu = self.inequality_constraints()
+        hu, hx = self.inequality_constraints()
         G = csd.vertcat(*g)
         Hu = csd.vertcat(*hu)
         Hx = csd.vertcat(*hx)
-        Hmu = csd.vertcat(*hmu)
-        G_qcsd = csd.vertcat(*g, *hx, *hu,  *hmu)
-        lbg = [0] * G.shape[0] + [-np.inf] * (Hu.shape[0] + Hx.shape[0] + Hmu.shape[0])
-        ubg = [0] * G.shape[0] + [0] * (Hu.shape[0] + Hx.shape[0] + Hmu.shape[0])
+        G_qcsd = csd.vertcat(*g, *hx, *hu)
+        lbg = [0] * G.shape[0] + [-np.inf] * (Hu.shape[0] + Hx.shape[0])
+        ubg = [0] * G.shape[0] + [0] * (Hu.shape[0] + Hx.shape[0])
         self.lbg_qcsd = csd.vertcat(*lbg)
         self.ubg_qcsd = csd.vertcat(*ubg)
 
@@ -259,7 +254,7 @@ class ParamMPCformulation:
         }
         self.qsolver = csd.nlpsol("qsolver", "ipopt", qnlp_prob, opts_setting)
 
-        _, _, self.dLagQ, _, _ = self.build_sensitivity(J, G, Hu, Hx, Hmu)
+        _, _, self.dLagQ, _, _ = self.build_sensitivity(J, G, Hu, Hx)
     
     def build_block_matrix(self,b, n):
         """
@@ -297,7 +292,7 @@ class ParamMPCformulation:
 
         return block_matrix
 
-    def build_sensitivity(self, G, J, Hu, Hx, Hmu):
+    def build_sensitivity(self, G, J, Hu, Hx):
         """
         Computes the sensitivity functions for given cost and constraints in
         J, G, Hu, Hx, Hmu
@@ -336,10 +331,8 @@ class ParamMPCformulation:
         mu_u = csd.SX.sym("muu", Hu.shape[0])
         # Vector of Lagrange multipliers for state inequality constraints
         mu_x = csd.SX.sym("mux", Hx.shape[0])
-         # Vector of Lagrange multipliers for penalty inequality constraints
-        mu_mu = csd.SX.sym("mus", Hmu.shape[0])
         # Vector of Lagrange multipliers
-        mult = csd.vertcat(lamb, mu_u, mu_x, mu_mu)
+        mult = csd.vertcat(lamb, mu_u, mu_x)
 
         # Build Lagrangian
         Lag = (
@@ -347,7 +340,6 @@ class ParamMPCformulation:
             + csd.transpose(lamb) @ G
             + csd.transpose(mu_u) @ Hu
             + csd.transpose(mu_x) @ Hx
-            + csd.transpose(mu_mu) @ Hmu
         )
         Lagfunc = csd.Function("Lag", [self.Opt_Vars, mult, self.Pf, self.P_learn], [Lag])
 
@@ -369,12 +361,11 @@ class ParamMPCformulation:
             G,
             mu_u * Hu + self.etau,
             mu_x * Hx + self.etau,
-            mu_mu * Hmu + self.etau,
         )
       
 
         # z contains all variables of the lagrangian
-        z = csd.vertcat(self.Opt_Vars, lamb, mu_u, mu_x, mu_mu)
+        z = csd.vertcat(self.Opt_Vars, lamb, mu_u, mu_x)
    
         # Generate sensitivity of the KKT matrix
         Rfun = csd.Function("Rfun", [z, self.Pf, self.P_learn], [R_kkt])
@@ -430,7 +421,7 @@ class ParamMPCformulation:
 
         return Rfun, dPi, dLagfunc, f_dRdz, f_dRdp
     
-    def build_sensitivity_Pi(self, J, Hu, Hx, Hmu):
+    def build_sensitivity_Pi(self, J, Hu, Hx):
         """
         Computes the sensitivity functions for given cost and constraints in
         J, G, Hu, Hx, Hmu
@@ -467,17 +458,15 @@ class ParamMPCformulation:
         mu_u = csd.SX.sym("muu", Hu.shape[0])
         # Vector of Lagrange multipliers for state inequality constraints
         mu_x = csd.SX.sym("mux", Hx.shape[0])
-         # Vector of Lagrange multipliers for penalty inequality constraints
-        mu_mu = csd.SX.sym("mus", Hmu.shape[0])
+      
         # Vector of Lagrange multipliers
-        mult = csd.vertcat( mu_u, mu_x, mu_mu)
+        mult = csd.vertcat( mu_u, mu_x)
 
         # Build Lagrangian
         Lag = (
             J
             + csd.transpose(mu_u) @ Hu
             + csd.transpose(mu_x) @ Hx
-            + csd.transpose(mu_mu) @ Hmu
         )
         Lagfunc = csd.Function("Lag", [self.Opt_Vars, mult, self.Pf, self.P_learn], [Lag])
 
@@ -498,12 +487,11 @@ class ParamMPCformulation:
             csd.transpose(dLdw),
             mu_u * Hu + self.etau,
             mu_x * Hx + self.etau,
-            mu_mu * Hmu + self.etau,
         )
       
 
         # z contains all variables of the lagrangian
-        z = csd.vertcat(self.Opt_Vars, mu_u, mu_x, mu_mu)
+        z = csd.vertcat(self.Opt_Vars, mu_u, mu_x)
    
         # Generate sensitivity of the KKT matrix
         Rfun = csd.Function("Rfun", [z, self.Pf, self.P_learn], [R_kkt])

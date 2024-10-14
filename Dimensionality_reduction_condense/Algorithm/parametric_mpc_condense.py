@@ -246,9 +246,9 @@ class MPCfunapprox(ParamMPCformulation):
         param_val = param_val if param_val is not None else self.P_learn
         if constrained_updates:
        
-            self.P_learn = self.Stiefel_param_update(dJ , param_val, lr)
-            #self.P_learn = self.constraint_param_update(dJ, param_val)
-            #self.P_learn = self.gramm_schmidt()
+            #self.P_learn = self.Stiefel_param_update(dJ , param_val, lr)
+            self.P_learn = self.constraint_param_update(dJ, param_val)
+            self.P_learn = self.gramm_schmidt()
             self.compute_null_space()
         else:
             dP = -self.lr[0] * dJ    #need to check shape 
@@ -297,7 +297,7 @@ class MPCfunapprox(ParamMPCformulation):
             @pymanopt.function.autograd(manifold)
             def cost(point):
                 diff = point - P_up
-                constraint_violation = 1000000*(np.sum(np.maximum(0, diff - 0.1)) + np.sum(np.maximum(0, -0.1 - diff)))
+                constraint_violation = 1000000*(np.sum(np.maximum(0, diff - 0.2)) + np.sum(np.maximum(0, -0.2 - diff)))
             # Define the cost function
                 if k == 1:
                     cost_n = 0.5 * anp.linalg.norm(diff) ** 2 +  lr * anp.dot(dJ.T, diff) 

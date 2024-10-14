@@ -560,8 +560,7 @@ V = SX.sym("V", nv, 1)
 
 # penalty  variables for inactive subspace w 
 mu = SX.sym("mu", 1, 1)
-lb_Mu = 0.0
-ub_Mu = 1.0
+
 
 U_a = T1@V-mu*T2@P_val[nx:]
 
@@ -599,27 +598,24 @@ def objective_cost_p():
 
 def inequality_constraints_p():
     # Constraint list
-    hmu = []  # initial input constraints  
     hu = []   # Box constraints on active inputs
     hx = []   # Box constraints on states
     hu.append(lbu- U_a )
     hu.append(U_a - ubu)
     hx.append(lbx-X_a)
     hx.append(X_a - ubx)
-    hmu.append(lb_Mu-mu)
-    hmu.append(mu-ub_Mu)
+ 
 
-    return hmu ,hu, hx
+    return hu, hx
 
 def Pi_opt_formulation_p():
     J = objective_cost_p()
-    hmu , hu, hx = inequality_constraints_p()
+    hu, hx = inequality_constraints_p()
     Hu = vertcat(*hu)
     Hx = vertcat(*hx)
-    Hmu = vertcat(*hmu)
-    G_vcsd = vertcat(*hx, *hu ,*hmu)
-    lbg =  [-np.inf] * (Hx.shape[0] + Hu.shape[0] + Hmu.shape[0])
-    ubg =  [0] * (Hx.shape[0] + Hu.shape[0] + Hmu.shape[0])
+    G_vcsd = vertcat(*hx, *hu )
+    lbg =  [-np.inf] * (Hx.shape[0] + Hu.shape[0] )
+    ubg =  [0] * (Hx.shape[0] + Hu.shape[0] )
     lbg_vcsd_p = vertcat(*lbg)
     ubg_vcsd_p = vertcat(*ubg)
 
