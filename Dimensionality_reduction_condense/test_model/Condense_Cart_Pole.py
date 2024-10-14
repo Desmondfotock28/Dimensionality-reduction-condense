@@ -508,13 +508,13 @@ plt.show()
 
 
 # Load the saved T1 and T2
-T1 = np.load('dominant_active.npy')
-T2 = null_space(T1.T)
+#T1 = np.load('dominant_active.npy')
+#T2 = null_space(T1.T)
 #T1 = np.load('T1_G10.npy')
 #T2 = np.load('T2_G10.npy')
 
-#T1 = np.load('T1.npy')
-#T2 = np.load('T2.npy')
+T1 = np.load('T1_reduce.npy')
+T2 = np.load('T2_reduce.npy')
 
 
 nv = T1.shape[1]
