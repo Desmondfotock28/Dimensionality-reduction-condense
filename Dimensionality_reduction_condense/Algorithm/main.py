@@ -11,7 +11,7 @@ from quadratics_cost_condense import Quadratic_stage_cost_model
 from MPCQlearning_condense import MPCQlearning
 from IPython.display import HTML
 from exploration import EpsilonGreedyExploration
-
+from scipy.linalg import null_space
 
 class MPCfunapprox_ex(MPCfunapprox, ParamMPCformulation):
     def __init__(self, model, cost_model, agent_params, opt_params, train_it,exploration_strategy, seed=1):
@@ -133,8 +133,10 @@ xSS=  np.array([0, 0 , 0, 0])
 
 
 
-T1_0 = np.load('T1_G10.npy')
-T2_0 = np.load('T2_G10.npy')
+#T1_0 = np.load('T1_G10.npy')
+#T2_0 = np.load('T2_G10.npy')
+T1_0 = np.load('dominant_active.npy')
+T2_0 = null_space(T1_0.T)
 nv = T1_0.shape[1]
 
 
@@ -210,8 +212,8 @@ w  = np.array(w).reshape( (N *nu - nv ), 1 )
 
 plot_stats(stats)
    
-np.save('T1.npy', T1)
-np.save('T2.npy', T2)
+np.save('T1_reduce.npy', T1)
+np.save('T2_reduce.npy', T2)
 
 test_mpc_policy(env, agent)
 

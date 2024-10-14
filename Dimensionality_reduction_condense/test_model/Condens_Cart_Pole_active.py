@@ -304,6 +304,12 @@ A_cl = A_d + B_d @ K
 # Eigenvalues of close loop
 print(np.linalg.eig(A_cl)[0])
 
+
+P_x = np.array([[ 0.03896136,  0.02581036, -0.13253538,  0.07871372],
+       [ 0.02581036,  0.04998901, -0.11812399,  0.05683834],
+       [-0.13253538, -0.11812399,  0.48589758, -0.2765033 ],
+       [ 0.07871372,  0.05683834, -0.2765033 ,  0.16268896]])
+
 Q_d , R_d= compute_block_matrix( Q, R, N)
 
 G = g_vec(P_a , U , N , system ,Ts)
@@ -363,6 +369,7 @@ def inequality_constraints():
     hu.append(U - ubu)
     hx.append(lbx-X)
     hx.append(X - ubx)
+    #hx.append(G[N*nx:].T@P_x@G[N*nx:]-1)
     return  hu, hx
 
 def Pi_opt_formulation():
@@ -604,6 +611,7 @@ def inequality_constraints_p():
     hu.append(U_a - ubu)
     hx.append(lbx-X_a)
     hx.append(X_a - ubx)
+    #hx.append(G_a[N*nx:].T@P_x@G_a[N*nx:]-1)
  
 
     return hu, hx

@@ -7,6 +7,7 @@ from control import dare
 from scipy.linalg import null_space
 
 
+
 def plot_results(t, x, u, xSS, uSS, fignum):
     linewidth = 1.5
     xSSp = xSS
@@ -241,7 +242,7 @@ def stack_gain_matrix(N,K):
         block_matrix[i*nu:(i+1)*nu, i*nx:(i+1)*nx] = K
     return block_matrix
 
-
+ 
 #Controller frequency and Prediction horizon
 Ts = 0.01    #sampling time in [s]
 
@@ -305,6 +306,11 @@ A_cl = A_d + B_d @ K
 # Eigenvalues of close loop
 print(np.linalg.eig(A_cl)[0])
 
+P_x = np.array([[ 0.03896136,  0.02581036, -0.13253538,  0.07871372],
+       [ 0.02581036,  0.04998901, -0.11812399,  0.05683834],
+       [-0.13253538, -0.11812399,  0.48589758, -0.2765033 ],
+       [ 0.07871372,  0.05683834, -0.2765033 ,  0.16268896]])
+
 Q_d , R_d= compute_block_matrix( Q, R, N)
 
 G = g_vec(P_a , U , N , system ,Ts)
@@ -316,7 +322,7 @@ for i in range(len(G)):
 
 X = vertcat(*X)
 G = vertcat(*G)
-print(G.shape)
+print(G[(N-1)*nx:].shape)
 U = vertcat(reshape(U, -1,1))
 
 #symbolic variable for g_vec 
@@ -364,6 +370,7 @@ def inequality_constraints():
     hu.append(U - ubu)
     hx.append(lbx-X)
     hx.append(X - ubx)
+    #hx.append(G[N*nx:].T@P_x@G[N*nx:]-1)
     return  hu, hx
 
 def Pi_opt_formulation():
@@ -501,13 +508,13 @@ plt.show()
 
 
 # Load the saved T1 and T2
-#T1 = np.load('dominant_active.npy')
-#T2 = null_space(T1.T)
+T1 = np.load('dominant_active.npy')
+T2 = null_space(T1.T)
 #T1 = np.load('T1_G10.npy')
 #T2 = np.load('T2_G10.npy')
 
-T1 = np.load('T1.npy')
-T2 = np.load('T2.npy')
+#T1 = np.load('T1.npy')
+#T2 = np.load('T2.npy')
 
 
 nv = T1.shape[1]
@@ -564,6 +571,7 @@ def inequality_constraints_p():
     hu.append(U_a - ubu)
     hx.append(lbx-X_a)
     hx.append(X_a - ubx)
+    #hx.append(G_a[N*nx:].T@P_x@G_a[N*nx:]-1)
 
     return hu, hx
 

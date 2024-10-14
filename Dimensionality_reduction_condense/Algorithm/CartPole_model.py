@@ -183,7 +183,7 @@ class CartPole(gym.Env):
         """
         state = state if state is not None else self.state.copy()
         r = state.T @ self._W @ state + self._R*(action)**2  #Need to defined reward style
-        return r
+        return -r
     
     def _parse_env_params(
         self,
@@ -238,7 +238,7 @@ class CartPole(gym.Env):
         self.state =  np.array([np.pi, 1, 0, 0])
 
         if seed is not None:
-            np.random.seed(seed)
+           np.random.seed(seed)
 
         self.state += np.random.uniform(low=-0.05, high=0.05, size=(4,)) # Adding small noise
         self.state = self.state.clip(
