@@ -41,17 +41,17 @@ nu = env.action_space.shape[0]
 
 N= 100
 
-Q = 2
-Q = Q * np.diag([1e3, 1e3, 1e-2, 1e-2])
+Q = 1
+Q = Q * np.diag([1, 1, 0.1, 0.1])
 
-R = 2
-R = R * np.diag([1e-1])
+R = 1
+R = R * np.diag([0.001])
 
 x0 =  np.array([np.pi, 1,0, 0])  
 
 
-T1_0 = np.load('T1_G2.npy')
-T2_0 = np.load('T2_G2.npy')
+T1_0 = np.load('T1_G10.npy')
+T2_0 = np.load('T2_G10.npy')
 
 nv = T1_0.shape[1]
 
@@ -79,16 +79,12 @@ def rollout_sample(env, agent, mode="train"):
     rollout_buffer = BasicBuffer()
     u_tilda_k ,  usol  = agent.P(obs)
     agent.Pf[2*nx + nu :(N *nu- nv)+ 2*nx + nu] = csd.mtimes(agent.T2.T, usol)
-    epsilon =0.01
+ 
 
     for _ in range(n_steps):
 
         act0, action, add_info = agent.act_forward(obs,  mode=mode)
 
-        if np.random.random() < epsilon:
-                act0 = np.array(np.random.uniform(-80, 80)).reshape(1,1)
-        else:
-            act0
         next_state, next_obs, reward, _ = env.step(act0)
 
         if mode == "train":
@@ -137,15 +133,15 @@ agent_params= {
         "eps": 0.25,
         "learning_params": {
             "lr": 1e-3,
-            "tr": 0.2,
+            "tr": 0.1,
             "train_params": {
-                "iterations": 10,
+                "iterations": 5,
                 "batch_size": 32
             },
             "constrained_updates": True
         }
     }
-n_iterations = 10
+n_iterations = 5
 n_trains = 1
 n_evals = 0
 n_steps = 200
@@ -185,11 +181,12 @@ for it in range(n_iterations):
     # print(f"Evaluation rollout return: {np.mean(e_returns)}")
 stats = {'TD Loss': t_returns, 'Returns':  e_returns}
 # final evaluation performance
-f_returns = []
-for _ in range(50):
-    rollout_return, rollout_buffer = rollout_sample(env, agent, mode="final")
-    f_returns.append(rollout_return)
-print(f"Final rollout return: {np.mean(f_returns)}")
+
+#f_returns = []
+#for _ in range(10):
+    #rollout_return, rollout_buffer = rollout_sample(env, agent, mode="final")
+    #f_returns.append(rollout_return)
+#print(f"Final rollout return: {np.mean(f_returns)}")
 
 T1 =  agent.P_learn
 T1 = np.array(T1).reshape(N*nu , nv , order='F')

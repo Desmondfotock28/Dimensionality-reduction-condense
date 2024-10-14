@@ -8,6 +8,7 @@ class MPCQlearning:
         self.mpc = mpc
         self._parse_agent_params(**learning_params)
         self.exploration_strategy = exploration_strategy  # New exploration strategy
+        self.policy_theta =[]
 
     def train(self, mode = "train"):
         """
@@ -27,43 +28,37 @@ class MPCQlearning:
         self.mpc.reset(obs)
         del_J = 0.0
         td_avg = 0
-        self.policy_theta =[]
         self.rollout_return = 0
         self.average_td = 0
         u_tilda_k ,  usol  = self.mpc.P(obs)
         T2 = self._extract_T2_matrix(usol)
         self._update_w_tilda(T2, usol)
-        u_star =[]
+        #u_star =[]
         for it in range(self.mpc.train_it):
-            
-            if self.exploration_strategy.can_explore():
-                act0 = np.array(self.exploration_strategy.perturbation('random')).reshape(1,1)
-                soln = None
-         
+  
 
-            else:
-                act0, action, add_info = self.mpc.act_forward(obs, mode=mode)
-
-                soln = add_info["soln"]
-
-                u_tilda_k = np.vstack([action[1:], action[-1, :]])
-
-                self._update_w_tilda(T2, u_tilda_k)
+            act0, action, add_info = self.mpc.act_forward(obs, mode=mode)
 
                 #store the optimal policy
-                u_star.append(act0)
+            self.policy_theta.append(np.array(action))
                    
             #calculate and record the stage cost L_θ (s_k,a_k ), 
             next_state, next_obs, reward, _ = self.mpc.model.step(act0)
 
             # Q value of the state-action pair
-            q, info = self.mpc.Q_value(state, act0, soln=soln)
+            q, info = self.mpc.Q_value(state, act0, soln=add_info["soln"])
 
             # calculate and record the value function of next state V_θ (s_k )
             v_next, info_next = self.mpc.V_value(
-                            next_state, soln=soln, mode="update"
+                            next_state, soln=add_info["soln"], mode="update"
                         )
             
+             #update utilda
+            u_tilda_k = np.vstack([action[1:], action[-1, :]])
+
+             #update wtilda
+
+            self._update_w_tilda(T2, u_tilda_k)
            
             #calculate the sensitivity ∇_θ Q_θ (s_k,a_k )
             grad_q = self.mpc.dQdP(info["soln"], info["pf"], info["p"], info["optimal"])
@@ -82,7 +77,7 @@ class MPCQlearning:
             # Step the exploration strategy to decay epsilon
             self.exploration_strategy.step()
          # RL update step
-        self.policy_theta.append(u_star)
+        
         self.mpc.param_update(del_J, constrained_updates=self.constrained_updates)
         self.average_td = td_avg / self.mpc.train_it
         print(f"Averaged TD error: {td_avg / self.mpc.train_it}")

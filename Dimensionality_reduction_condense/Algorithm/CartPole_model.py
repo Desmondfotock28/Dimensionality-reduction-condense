@@ -59,11 +59,11 @@ class CartPole(gym.Env):
 
     def __init__(self,  render_mode: Optional[str] = None):
         super().__init__()
-        self.gravity = 9.81
+        self.gravity = 9.8
         self.masscart = 1.0
         self.masspole = 0.1
         self.total_mass = self.masspole + self.masscart
-        self.length = 0.8 # actually half the pole's length
+        self.length = 0.5 # actually half the pole's length
         self.tau = 0.01  # seconds between state updates
         self.kinematics_integrator = "euler"
 
@@ -100,10 +100,10 @@ class CartPole(gym.Env):
 
         # Goal definitions
         self.goal_state = np.array([0.0, 0.0, 0.0, 0.0])
-        self.goal_mask_s = np.array([1e3, 1e3, 1e-2, 1e-2])
-        self.goal_mask_a = np.array([1e-1])
-        self._W = 2*np.diag(self.goal_mask_s)
-        self._R = 2*np.diag(self.goal_mask_a)
+        self.goal_mask_s = np.array([1, 1, 0.1, 0.1])
+        self.goal_mask_a = np.array([0.001])
+        self._W = np.diag(self.goal_mask_s)
+        self._R = np.diag(self.goal_mask_a)
         self.viewer = None
 
          # Initiate state
@@ -141,7 +141,7 @@ class CartPole(gym.Env):
         X0 = np.concatenate((v_st_0, mu_st_0), axis=0)
         return X0
     
-    def step(self, action):
+    def step(self, action ):
 
         #err_msg = f"{action!r} ({type(action)}) invalid"
         #assert self.action_space.contains(action), err_msg
@@ -176,13 +176,13 @@ class CartPole(gym.Env):
         info = ""
         return (self.state, self.obs, rew, info)
     
-    def reward_fn(self, state, action):
+    def reward_fn(self, state, action ):
         """
         Compute reward for one timestep
 
         """
         state = state if state is not None else self.state.copy()
-        r = state.T @ self._W @ state + self._R*action**2  #Need to defined reward style
+        r = state.T @ self._W @ state + self._R*(action)**2  #Need to defined reward style
         return r
     
     def _parse_env_params(

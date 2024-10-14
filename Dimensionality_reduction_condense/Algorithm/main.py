@@ -121,23 +121,20 @@ nx = env.observation_space.shape[0]
 nu = env.action_space.shape[0]
 N= 100
 
-Q = 2
-Q = Q * np.diag([1e3, 1e3, 1e-2, 1e-2])
+Q = 1
+Q = Q * np.diag([1, 1, 0.1, 0.1])
 
-R = 2
-R = R * np.diag([1e-1])
+R = 1
+R = R * np.diag([0.001])
 
 x0 =  np.array([np.pi, 1,0, 0])  
 
 xSS=  np.array([0, 0 , 0, 0])
 
-#T1_0 = np.load('T1_Hess_dense.npy')# Load the saved T1 and T2
-
-#T2_0 = np.load('T2_Hess_dense.npy')
 
 
-T1_0 = np.load('T1_G2.npy')
-T2_0 = np.load('T2_G2.npy')
+T1_0 = np.load('T1_G10.npy')
+T2_0 = np.load('T2_G10.npy')
 nv = T1_0.shape[1]
 
 
@@ -152,7 +149,7 @@ u, usol = nominal_mpc.run_open_loop_mpc()
 
 w_0  =  csd.mtimes(T2_0.T, usol )
 
-n_steps = 200
+n_steps = 30
 
 seed = 1
 agent_params= {
@@ -163,16 +160,16 @@ agent_params= {
         "w": w_0,
         "eps": 0.25,
         "learning_params": {
-            "lr": 1e-3,
-            "tr": 0.2,
+            "lr": 1e-4,
+            "tr": 0.1,
             "train_params": {
-                "iterations":30,
+                "iterations":500,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 30
+n_iterations = 500
 
 # Agent init
 agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_strategy)

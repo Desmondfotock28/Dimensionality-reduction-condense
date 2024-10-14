@@ -167,7 +167,7 @@ class ParamMPCformulation:
         ubu = csd.vertcat(*ubu)
         lbu = csd.vertcat (*lbu)
 
-        lb_mu = 0.0*np.ones(1)
+        lb_mu = 0.8*np.ones(1)
         ub_mu = 1.0*np.ones(1)
       
 
@@ -356,9 +356,9 @@ class ParamMPCformulation:
             "dLagfunc",
             ["i0", "i1", "i2", "i3"],
             ["jac:o0:i0", "jac:o0:i2", "jac:o0:i3"],  
-            #  "jac:o0:i0" compute the partial derivative with respect to optimisation parameters (X,V,mu)
-            #  "jac:o0:i2" compute the partial derivative with respect to the fixed parameters (x0, xSS, u0 ,w)
-            #  "jac:o0:i2" compute the partial derivative with respect to the learnable  parameters (T1,T2)
+            #  "jac:o0:i0" compute the partial derivative with respect to optimisation parameters (V,mu)
+            #  "jac:o0:i2" compute the partial derivative with respect to the fixed parameters (x0, xSS, u0 ,w,T2)
+            #  "jac:o0:i2" compute the partial derivative with respect to the learnable  parameters (T1)
            
         )
         dLdw, dLdPf, dLdP_learn = dLagfunc(self.Opt_Vars, mult, self.Pf, self.P_learn)
@@ -486,9 +486,9 @@ class ParamMPCformulation:
             "dLagfunc",
             ["i0", "i1", "i2", "i3"],
             ["jac:o0:i0", "jac:o0:i2", "jac:o0:i3"],  
-            #  "jac:o0:i0" compute the partial derivative with respect to optimisation parameters (X,V,mu)
-            #  "jac:o0:i2" compute the partial derivative with respect to the fixed parameters (x0, xSS, u0 ,w)
-            #  "jac:o0:i2" compute the partial derivative with respect to the learnable  parameters (T1,T2)
+            #  "jac:o0:i0" compute the partial derivative with respect to optimisation parameters (V,mu)
+            #  "jac:o0:i2" compute the partial derivative with respect to the fixed parameters (x0, xSS, u0 ,w,T2)
+            #  "jac:o0:i2" compute the partial derivative with respect to the learnable  parameters (T1)
            
         )
         dLdw, dLdPf, dLdP_learn = dLagfunc(self.Opt_Vars, mult, self.Pf, self.P_learn)

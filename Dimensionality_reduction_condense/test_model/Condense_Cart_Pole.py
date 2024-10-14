@@ -175,7 +175,7 @@ def compute_hessian(A, B, Q_base, R_base, N):
     P = dare(A, B, Q_base, R_base)[0]
     
     # Construct the block diagonal matrix Q
-    Q_blocks = [Q_base] * (N - 1) + [Q]
+    Q_blocks = [Q_base] * (N - 1) + [1000*Q]
     Q_d = np.block([[Q_blocks[i] if i == j else np.zeros_like(Q_base) for j in range(N)] for i in range(N)])
     
     # Construct the block diagonal matrix R
@@ -194,8 +194,8 @@ def CartPole_parameters() -> dict:
     params = {
         'm': 0.1,      # kg
         'M': 1,      # kg
-        'l': 0.8,      # m
-        'g': 9.81     # N/kg
+        'l': 0.5,      # m
+        'g': 9.8     # N/kg
     }
     return params
 
@@ -271,18 +271,18 @@ U = SX.sym('U',nu,N)               # Decision variables (controls)
 P_a = SX.sym('P_a',nx,1)
     
 #Objective and Constrains
-Q = 2
-Q = Q * np.diag([1e3, 1e3, 1e-2, 1e-2])
+Q = 1
+Q = Q * np.diag([1, 1, 0.1, 0.1])
 
-R = 2
-R = R * np.diag([1e-1])
+R = 1
+R = R * np.diag([0.001])
 
 
 # Define the stage cost and terminal cost
-m = 1 # mass of pendulum (kg)
+m = 0.1 # mass of pendulum (kg)
 M = 1  # mass of cart (kg)
-g = 9.81  #  acceleration due to gravity m/s^2
-l = 0.8    # length of pendulum 
+g = 9.8  #  acceleration due to gravity m/s^2
+l = 0.5    # length of pendulum 
 # continuos-time Linearise system matrices 
 
 A = np.array([[0, 0, 1, 0], [0, 0, 0, 1], [((m + M)*g)/(l*M), 0, 0, 0], [(-m*g)/M, 0, 0, 0]])
@@ -501,6 +501,11 @@ plt.show()
 
 
 # Load the saved T1 and T2
+#T1 = np.load('dominant_active.npy')
+#T2 = null_space(T1.T)
+#T1 = np.load('T1_G10.npy')
+#T2 = np.load('T2_G10.npy')
+
 T1 = np.load('T1_nv_new.npy')
 T2 = np.load('T2_nv_new.npy')
 
@@ -516,7 +521,7 @@ V = SX.sym("V", nv, 1)
 
 # penalty  variables for inactive subspace w 
 mu = SX.sym("mu", 1, 1)
-lb_Mu = 0
+lb_Mu = 0.8
 ub_Mu = 1
 
 U_a = T1@V-mu*T2@P_val[nx:]

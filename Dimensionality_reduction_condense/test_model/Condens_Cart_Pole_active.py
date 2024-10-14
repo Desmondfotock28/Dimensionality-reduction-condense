@@ -193,8 +193,8 @@ def CartPole_parameters() -> dict:
     params = {
         'm': 0.1,      # kg
         'M': 1,      # kg
-        'l': 0.8,      # m
-        'g': 9.81     # N/kg
+        'l': 0.5,      # m
+        'g': 9.8     # N/kg
     }
     return params
 
@@ -271,17 +271,17 @@ P_a = SX.sym('P_a',nx,1)
     
 #Objective and Constrains
 Q = 2
-Q = Q * np.diag([1e3, 1e3, 1e-2, 1e-2])
+Q = Q * np.diag([1, 1, 0.1, 0.1])
 
 R = 2
-R = R * np.diag([1e-1])
+R = R * np.diag([0.001])
 
 
 # Define the stage cost and terminal cost
-m = 1 # mass of pendulum (kg)
+m = 0.1 # mass of pendulum (kg)
 M = 1  # mass of cart (kg)
-g = 9.81  #  acceleration due to gravity m/s^2
-l = 0.8    # length of pendulum 
+g = 9.8  #  acceleration due to gravity m/s^2
+l = 0.5    # length of pendulum 
 # continuos-time Linearise system matrices 
 
 A = np.array([[0, 0, 1, 0], [0, 0, 0, 1], [((m + M)*g)/(l*M), 0, 0, 0], [(-m*g)/M, 0, 0, 0]])
