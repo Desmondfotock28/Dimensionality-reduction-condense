@@ -54,7 +54,11 @@ class MPCformulation:
         self.Pf = csd.SX.sym(
             "Pf", self.nPf
         )  # [Initial state x0, steady_state] ("fixed" params)
-
+        
+        self.P_x = np.array([[ 0.03896136,  0.02581036, -0.13253538,  0.07871372],
+                [ 0.02581036,  0.04998901, -0.11812399,  0.05683834],
+                [-0.13253538, -0.11812399,  0.48589758, -0.2765033 ],
+                [ 0.07871372,  0.05683834, -0.2765033 ,  0.16268896]])
         # Create an instance of QuadraticStageCostModel
         self.cost_model = Quadratic_stage_cost_model(model, opt_params)
         
@@ -98,6 +102,7 @@ class MPCformulation:
         hx.append(G - ubx)
         hu.append(lbu - U)
         hu.append(U - ubu)
+        #hx.append(G[self.N*self.obs_dim:].T@self.P_x@G[self.N*self.obs_dim:]-1)
     
         return  hu, hx
     

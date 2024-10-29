@@ -93,8 +93,8 @@ class MPCfunapprox(ParamMPCformulation):
         #Reconstruct optimal control action
         action = self.T1@Vsol + musol*self.T2 @self.w
         act =  np.array(action).reshape((self.N , self.action_dim))
-        act0 = act[0, :]
-        #act = act0.clip(self.model.action_space.low, self.model.action_space.high)
+        act0 = act[0, :]    #+ np.random.uniform(-0.05, 0.05, size=(1,)) #add random noise on action
+        #act0 = act0.clip(self.model.action_space.low, self.model.action_space.high)
        
         self.X0 = self.update_X0(opt_var)
         info = {
@@ -246,9 +246,9 @@ class MPCfunapprox(ParamMPCformulation):
         param_val = param_val if param_val is not None else self.P_learn
         if constrained_updates:
        
-            #self.P_learn = self.Stiefel_param_update(dJ , param_val, lr)
-            self.P_learn = self.constraint_param_update(dJ, param_val)
-            self.P_learn = self.gramm_schmidt()
+            self.P_learn = self.Stiefel_param_update(dJ , param_val, lr)
+            #self.P_learn = self.constraint_param_update(dJ, param_val)
+            #self.P_learn = self.gramm_schmidt()
             self.compute_null_space()
         else:
             dP = -self.lr[0] * dJ    #need to check shape 
@@ -284,20 +284,21 @@ class MPCfunapprox(ParamMPCformulation):
         :param dJ: Expected value of the gradient of the parametrized state-action value function.
         :param lr: Learning rate.
         :return: Optimized matrix theta, or None if optimization fails.
-        """    
+        """ 
         try:
             P_up = np.array(p_val).copy()
             Jac   = np.array(dJ).copy()
             P_up = P_up.reshape(self.N*self.action_dim , self.nv , order='F')
             Jac = Jac.reshape(self.N*self.action_dim , self.nv , order='F')
             n, k = P_up.shape  # Dimensions of the matrix
+            lr = 0.1*lr
             print("start RL update scheme")
             # Define the Stiefel manifold
             manifold = Stiefel(n, k)
             @pymanopt.function.autograd(manifold)
             def cost(point):
                 diff = point - P_up
-                constraint_violation = 1000000*(np.sum(np.maximum(0, diff - 0.2)) + np.sum(np.maximum(0, -0.2 - diff)))
+                constraint_violation = 100000*(np.sum(np.maximum(0, diff - 0.2)) + np.sum(np.maximum(0, -0.2 - diff)))
             # Define the cost function
                 if k == 1:
                     cost_n = 0.5 * anp.linalg.norm(diff) ** 2 +  lr * anp.dot(dJ.T, diff) 
@@ -312,14 +313,17 @@ class MPCfunapprox(ParamMPCformulation):
             problem = pymanopt.Problem(manifold=manifold, cost=cost)
 
             # Use the Steepest Descent optimizer with verbosity turned off
-            optimizer = pymanopt.optimizers.SteepestDescent(verbosity=0)
 
+            optimizer = pymanopt.optimizers.SteepestDescent(verbosity=0)
+            #optimizer = pymanopt.optimizers.ConjugateGradient( beta_rule="PolakRibiere",orth_value=1e-5, verbosity=0)
+            
             # Solve the optimization problem
             result = optimizer.run(problem)
 
             result.point = csd.vertcat( csd.reshape(result.point, -1, 1))
             # Return the optimized matrix
             result.point = np.array(result.point)
+         
             return result.point
 
         except Exception as e:

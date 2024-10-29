@@ -11,6 +11,10 @@ from replay_buffer import BasicBuffer, ReplayBuffer
 from quadratics_cost_condense import Quadratic_stage_cost_model
 from Qlearning import Qlearning
 from IPython.display import HTML
+from scipy.linalg import null_space
+from exploration import EpsilonGreedyExploration
+from schedulers import ExponentialScheduler
+from scipy.linalg import expm
 
 
 
@@ -47,14 +51,13 @@ Q = Q * np.diag([1, 1, 0.1, 0.1])
 R = 1
 R = R * np.diag([0.001])
 
-x0 =  np.array([np.pi, 1,0, 0])  
+T1_0 = np.load('T1_RT11.npy')
+T2_0 = null_space(T1_0.T)
 
+K = np.array([[119.959032  ,  27.09347287,  27.10575672,  25.59835605]])
 
-#T1_0 = np.load('T1_G10.npy')
-#T2_0 = np.load('T2_G10.npy')
-
-T1_0 = np.load('dominant_active.npy')
-T2_0 = null_space(T1.T)
+#T1_0=np.load('T1_newGram.npy')
+#T2_0 = null_space(T1_0.T)
 
 nv = T1_0.shape[1]
 
@@ -74,6 +77,57 @@ u, usol = nominal_mpc.run_open_loop_mpc()
 
 w_0  =  csd.mtimes(T2_0.T, usol )
 
+# Initialize the EpsilonGreedyExploration strategy
+exploration_strategy = EpsilonGreedyExploration(
+    epsilon=0.1,  # Initial epsilon
+    strength=80,  # Perturbation strength
+    hook="timestep",  # Step every timestep
+    seed=42  # For reproducibility
+)
+
+init_value = 1  # Start with full exploration (epsilon = 1)
+decay_factor = 0.95  # Reduce exploration by 5% per step
+
+exploration_scheduler = ExponentialScheduler(init_value=init_value, factor=decay_factor)
+
+def _compute_cost(action, state):
+
+    action = csd.reshape(action, 1, 100) 
+    cost = cost_model.quadratic_stage_cost( state, action)
+    return cost
+
+def perturb_parameter_space( p_val, epsilon=1e-3):
+        """
+        Perturbs an orthogonal matrix P_learn while preserving orthogonality.
+        
+        Parameters:
+        - P_learn (np.ndarray): An orthogonal matrix of dimension (N, n_v).
+        - epsilon (float): The magnitude of perturbation. Small epsilon results in a small perturbation.
+        
+        Returns:
+        - np.ndarray: A perturbed orthogonal matrix with the same dimensions as P_learn.
+            """
+       
+        P_up = np.array(p_val).copy()
+        P_up = P_up.reshape(N*nu , nv , order='F')
+        # Generate a random skew-symmetric matrix Q
+        Q = np.random.randn(N, N)
+        Q = Q - Q.T  # Make Q skew-symmetric
+        
+        # Scale Q by epsilon to control the perturbation magnitude
+        Q *= epsilon
+        
+        # Exponentiate the skew-symmetric matrix to get an orthogonal perturbation
+        perturbation_matrix = expm(Q)
+        
+        # Apply the orthogonal perturbation to P_learn
+        P_perturbed = np.dot(perturbation_matrix, P_up)
+        T2 = null_space(P_perturbed.T) 
+        agent.Pf[2*nx + nu + (N *nu - nv):] = csd.vertcat( csd.reshape(T2, -1, 1))
+
+        P_perturbed = csd.vertcat( csd.reshape(P_perturbed, -1, 1))
+        
+        return P_perturbed
 
 def rollout_sample(env, agent, mode="train"):
     state, obs = env.reset()
@@ -82,26 +136,44 @@ def rollout_sample(env, agent, mode="train"):
     rollout_buffer = BasicBuffer()
     u_tilda_k ,  usol  = agent.P(obs)
     agent.Pf[2*nx + nu :(N *nu- nv)+ 2*nx + nu] = csd.mtimes(agent.T2.T, usol)
- 
-
-    for _ in range(n_steps):
+    
+    for it in range(n_steps):
 
         act0, action, add_info = agent.act_forward(obs,  mode=mode)
 
-        next_state, next_obs, reward, _ = env.step(act0)
+           #compute nominal cost
+        J_n = add_info["soln"]['f']
+        print("nominal_cost:",J_n)
+            
+       
+        next_state, next_obs, reward, _ = env.step(act0 , it)
 
         if mode == "train":
             rollout_buffer.push(
                 state, obs, act0 , reward, next_state, next_obs, add_info
             )
+        
+        #compute u_fb
+        u_fb =csd.mtimes(K,next_obs)
+
+        if next_obs[0]<= np.pi/3 and next_obs[0]>=-np.pi/3:
+            act_n =  csd.reshape(u_fb, 1, -1)
+            print("using feedback law")
+        else:
+            act_n = action[-1, :]
+             #update utilda
+        u_tilda_k = np.vstack([action[1:], act_n])
+        
+
         #update u_tilda_k using feedback law 
-        u_tilda_k = np.vstack([action[1:], action[-1, :]])
+        #u_tilda_k = np.vstack([action[1:], action[-1, :]])
 
         #update w_k using utilda 
         agent.Pf[2*nx + nu :(N *nu- nv)+ 2*nx + nu] = agent.T2.T@u_tilda_k
         rollout_return += reward
         state = next_state.copy()
         obs = next_obs.copy()
+
 
     return rollout_return, rollout_buffer
 
@@ -125,7 +197,7 @@ def plot_stats(stats):
     plt.show()
 
 
-n_steps = 200
+n_steps = 300
 seed = 1
 agent_params= {
         
@@ -135,19 +207,19 @@ agent_params= {
         "w": w_0,
         "eps": 0.25,
         "learning_params": {
-            "lr": 1e-3,
-            "tr": 0.1,
+            "lr": 1e-4,
+            "tr": 0.2,
             "train_params": {
-                "iterations": 5,
+                "iterations": 10,
                 "batch_size": 32
             },
             "constrained_updates": True
         }
     }
-n_iterations = 5
+n_iterations = 10
 n_trains = 1
 n_evals = 0
-n_steps = 200
+n_steps = 300
 max_len_buffer = 25
 
 # Experiment init
@@ -196,10 +268,10 @@ T1 = np.array(T1).reshape(N*nu , nv , order='F')
 T2 = agent.Pf[2*nx + nu + (N *nu - nv):]
 T2 = np.array(T2).reshape(N*nu , (N *nu - nv), order='F')
 
-np.save('T1_nv_new.npy', T1)
-np.save('T2_nv_new.npy', T2)
+np.save('T1_nv_3S.npy', T1)
+np.save('T2_nv_3S.npy', T2)
 
 
-print(agent.P_learn)
+#print(agent.P_learn)
 
-plot_stats(stats)
+#plot_stats(stats)

@@ -4,7 +4,8 @@ from casadi import *
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 from control import dare
-
+from scipy.linalg import null_space
+import sympy as sp
 
 def plot_results(t, x, u, xSS, uSS, fignum):
     linewidth = 1.5
@@ -193,8 +194,8 @@ def CartPole_parameters() -> dict:
     params = {
         'm': 0.1,      # kg
         'M': 1,      # kg
-        'l': 0.5,      # m
-        'g': 9.8     # N/kg
+        'l': 0.8,      # m
+        'g': 9.81     # N/kg
     }
     return params
 
@@ -270,30 +271,31 @@ U = SX.sym('U',nu,N)               # Decision variables (controls)
 P_a = SX.sym('P_a',nx,1)
     
 #Objective and Constrains
-Q = 2
+Q = 1
 Q = Q * np.diag([1, 1, 0.1, 0.1])
 
-R = 2
+R = 1
 R = R * np.diag([0.001])
 
 
 # Define the stage cost and terminal cost
 m = 0.1 # mass of pendulum (kg)
 M = 1  # mass of cart (kg)
-g = 9.8  #  acceleration due to gravity m/s^2
-l = 0.5    # length of pendulum 
+g = 9.81  #  acceleration due to gravity m/s^2
+l = 0.8    # length of pendulum 
 # continuos-time Linearise system matrices 
 
-A = np.array([[0, 0, 1, 0], [0, 0, 0, 1], [((m + M)*g)/(l*M), 0, 0, 0], [(-m*g)/M, 0, 0, 0]])
+A = np.array([[0, 0, 1, 0], [0, 0, 0, 1], [((m + M)*g)/(l*M), 0, 0, 0], [(-m*g*l)/M, 0, 0, 0]])
 B = np.array([[0], [0], [-1/(l*M)], [1/M]])
 
-# Discretization parameters
 dt = 0.01
 
 # Discrete-time system matrices using matrix exponential
 A_d = np.eye(4) + dt * A
 B_d = dt * B
 
+
+# Discretization parameters
 # Terminal cost (solution to Riccati equation)
 P, L, K = dare(A_d, B_d, Q, R)
 
@@ -369,7 +371,7 @@ def inequality_constraints():
     hu.append(U - ubu)
     hx.append(lbx-X)
     hx.append(X - ubx)
-    #hx.append(G[N*nx:].T@P_x@G[N*nx:]-1)
+    hx.append(G[N*nx:].T@P_x@G[N*nx:]-1)
     return  hu, hx
 
 def Pi_opt_formulation():
@@ -549,10 +551,16 @@ eigenvectors, D = eigen_decomposition(C_hat)
 T1 , T2 =select_active_inactive_subspaces_1(D, eigenvectors,  percentage=0.1)
 
 # Load the saved T1 and T2
-np.save('T1_G10.npy',T1)
-np.save('T2_G10.npy',T2)
+np.save('T1_nv_10.npy',T1)
+np.save('T2_nv_10.npy',T2)
 
+#T1 = np.load('T1_100SR1.npy')
+#T2 = np.load('T2_100SR1.npy')
 
+#T1 = np.load('T1_R100.npy')
+#T2 = np.load('T2_R200.npy')
+#T1=np.load('W.npy')
+#T2 = null_space(T1.T)
 
 
 nv = T1.shape[1]
@@ -611,7 +619,7 @@ def inequality_constraints_p():
     hu.append(U_a - ubu)
     hx.append(lbx-X_a)
     hx.append(X_a - ubx)
-    #hx.append(G_a[N*nx:].T@P_x@G_a[N*nx:]-1)
+    hx.append(G_a[N*nx:].T@P_x@G_a[N*nx:]-1)
  
 
     return hu, hx
@@ -665,8 +673,7 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
     goal_tolerance = 0.01  # Define a goal tolerance
     u_st_0 = np.tile(u0, (N, 1))
     u_st_0  = u_st_0.reshape(-1,1)
-    V_0 = T1.T@(u_st_0 -T2@w_k)
-   # Initial control inputs
+    V_0 = np.zeros(nv)
     v_st_0 = np.tile(V_0 , (1, 1))
     mu_st_0 = np.tile(mu, (1, 1))
     
@@ -732,11 +739,13 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
         x_ol.append(x0)   #store calculated state 
 
         #calculate state feedback 
-        u_fb =  mtimes(K,x0)
+        u_fb =mtimes(K,x0)   #controller.control_action(x0)
 
         #update u_tilda_k 
         u_tilda_k = np.vstack([Usol[nu:], reshape(u_fb, 1, -1)])
-        
+
+        #u_tilda_k1 = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
+
         u_tilda_k =vertcat(reshape(u_tilda_k, -1, 1))
         #update w_k 
         w_k = T2.T@(u_tilda_k)
@@ -752,7 +761,6 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
     x_ol = np.array(vertcat(*x_ol)).reshape(mpc_i+1,nx)
     u_cl = np.array(vertcat(*u_cl)).reshape(mpc_i,nu)
     
-
     return x_ol ,  u_cl ,t, cost_fb, cost_fn
 
 x_ol_p ,  u_cl_p ,t_p ,cost_fb,cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p )

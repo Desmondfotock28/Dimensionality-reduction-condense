@@ -195,8 +195,8 @@ def CartPole_parameters() -> dict:
     params = {
         'm': 0.1,      # kg
         'M': 1,      # kg
-        'l': 0.5,      # m
-        'g': 9.8     # N/kg
+        'l': 0.8,      # m
+        'g': 9.81     # N/kg
     }
     return params
 
@@ -248,7 +248,7 @@ Ts = 0.01    #sampling time in [s]
 
 N =  100     #prediction horizon
 
-tf= 2
+tf= 3
 
 nx= 4       #state dimension 
 
@@ -282,8 +282,8 @@ R = R * np.diag([0.001])
 # Define the stage cost and terminal cost
 m = 0.1 # mass of pendulum (kg)
 M = 1  # mass of cart (kg)
-g = 9.8  #  acceleration due to gravity m/s^2
-l = 0.5    # length of pendulum 
+g = 9.81  #  acceleration due to gravity m/s^2
+l = 0.8    # length of pendulum 
 # continuos-time Linearise system matrices 
 
 A = np.array([[0, 0, 1, 0], [0, 0, 0, 1], [((m + M)*g)/(l*M), 0, 0, 0], [(-m*g)/M, 0, 0, 0]])
@@ -402,14 +402,25 @@ def Pi_opt_formulation():
 
 lbg_vcsd, ubg_vcsd, G_vcsd , pisolver = Pi_opt_formulation()
 
+#x0 = np.array([np.pi, 1.0, 0, 0]) + np.random.uniform(low=-0.05, high=0.05, size=(4,))
 
+x0  = np.array([
+
+                np.random.uniform(low=0, high=np.pi), # X[0]
+
+                np.random.uniform(low=2, high=8),      # X[1]
+
+                0,                                     # X[2]
+                    
+                0                                      # X[3]
+            ])
 
 def run_open_loop_mpc(x0, u0 , solver ):
       # Initial control inputs and state
     u_st_0 = np.tile(u0, (N, 1))
 
     args_p =  np.array(
-            [[np.pi, 1, 0, 0] ]
+            [x0]
         )
     
     args_p= vertcat(*args_p)
@@ -430,7 +441,7 @@ def run_open_loop_mpc(x0, u0 , solver ):
 
 u0 = 80
 
-x0 = np.array([np.pi, 1, 0, 0])
+
 
 xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
 
@@ -454,7 +465,7 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
     u_cl = []    # Store control inputs in the closed loop
     goal_tolerance = 0.01  # Define a goal tolerance
     u_st_0 = np.tile(u0, (N, 1))
-    args_p = np.array([[np.pi, 1, 0, 0]])
+    args_p = np.array([[x0]])
     args_p = vertcat(*args_p)
     cost_n = []
     
@@ -491,30 +502,54 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
     return x_ol, u_cl, t, cost_n 
 
 Ts = 0.01
-sim_time = 2
-x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
+sim_time = 3
+#x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
 
+for it in range(5): 
+    x0  = np.array([
 
+                np.random.uniform(low=0, high=np.pi), # X[0]
 
-cost_n_np = [float(cost.full().flatten()) for cost in cost_nn]
-plt.figure(figsize=(10, 5))
-plt.plot(cost_n_np, label='Cost_n', marker='o')
-plt.xlabel('Iteration')
-plt.ylabel('Cost')
-plt.title('Nominal Cost')
-plt.legend()
-plt.grid(True)
-plt.show()
+                np.random.uniform(low=2, high=8),      # X[1]
+
+                0,                                     # X[2]
+                    
+                0                                      # X[3]
+            ])
+
+    x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
+
+    cost_n_np = [float(cost.full().flatten()) for cost in cost_nn]
+    plt.figure(figsize=(10, 5))
+    plt.plot(cost_n_np, label='Cost_n', marker='o')
+    plt.xlabel('Iteration')
+    plt.ylabel('Cost')
+    plt.title('Nominal Cost')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 
 # Load the saved T1 and T2
 #T1 = np.load('dominant_active.npy')
 #T2 = null_space(T1.T)
-#T1 = np.load('T1_G10.npy')
-#T2 = np.load('T2_G10.npy')
+#T1=np.load('T1_nv_10.npy')
+#T2 = null_space(T1.T)
 
-T1 = np.load('T1_reduce.npy')
-T2 = np.load('T2_reduce.npy')
+#nv = 3
+#T1=np.load('P_learnS.npy')
+#T1 = np.array(reshape(T1, N*nu, nv ))
+#T1 = np.array(T1).reshape(N*nu , nv , order='F')
+#T2 = null_space(T1.T)
+
+#T1=np.load('W.npy')
+#T2= null_space(T1.T)
+
+T1 =np.load('T1_nv_3S.npy')
+T2 = np.load('T2_nv_3S.npy')
+
+#T1 = np.load('T1_RT11S.npy')
+#T2= null_space(T1.T)
 
 
 nv = T1.shape[1]
@@ -619,14 +654,13 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
     mpc_i = 0
     x_cl = []    # Store predicted states in the closed loop
     u_cl = []    # Store control inputs in the closed loop
-    cost_fb = []
     cost_fn = []
     goal_tolerance = 0.01  # Define a goal tolerance
     u_st_0 = np.tile(u0, (N, 1))
     u_st_0  = u_st_0.reshape(-1,1)
-    V_0 = T1.T@(u_st_0 -T2@w_k)
-   # Initial control inputs
+    V_0 = np.zeros(nv)
     v_st_0 = np.tile(V_0 , (1, 1))
+   # Initial control inputs
     mu_st_0 = np.tile(mu, (1, 1))
     
     # Reshape to column vectors if necessary
@@ -667,8 +701,18 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
         t.append(t0)
         t0 = t0 + Ts
         x_ol.append(x0)
-     
+
+         #compute u_fb
+        #u_fb = mtimes(K,x0)
+
+        #if x0[0]<= np.pi/3 and x0[0]>=-np.pi/3:
+           # act_n =  reshape(u_fb, 1, -1)
+                
+       # else:
+            #act_n = Usol[(N-1)*nu:]
+            
         #update u_tilda_k 
+        #u_tilda_k = np.vstack([Usol[nu:], act_n])
         u_tilda_k = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
         
         u_tilda_k =vertcat(reshape(u_tilda_k, -1, 1))
@@ -676,7 +720,8 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
         w_k = T2.T@(u_tilda_k)
 
         # Prepare the initial condition for the next iteration
-        v_st_0 = T1.T@(Usol-T2@w_k)
+        v_st_0 = np.vstack([Vsol[1:], Vsol[-1]])
+        #v_st_0 = T1.T@(Usol-T2@w_k)
         mu_st_0 = musol
 
     #increment mpc counter 
@@ -686,9 +731,9 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
     u_cl = np.array(vertcat(*u_cl)).reshape(mpc_i,nu)
     
 
-    return x_ol ,  u_cl ,t, cost_fb, cost_fn
+    return x_ol ,  u_cl , t, cost_fn
 
-x_ol_p ,  u_cl_p ,t_p ,cost_fb,cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p )
+x_ol_p ,  u_cl_p ,t_p , cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
 
 #np.save('x_ol_p1_nv5', x_ol_p)
 #np.save('u_cl_p1_nv5', u_cl_p)

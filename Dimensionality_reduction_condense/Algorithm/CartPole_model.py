@@ -59,13 +59,16 @@ class CartPole(gym.Env):
 
     def __init__(self,  render_mode: Optional[str] = None):
         super().__init__()
-        self.gravity = 9.8
+        self.gravity = 9.81
         self.masscart = 1.0
         self.masspole = 0.1
         self.total_mass = self.masspole + self.masscart
-        self.length = 0.5 # actually half the pole's length
+        self.length = 0.8 # actually half the pole's length
         self.tau = 0.01  # seconds between state updates
         self.kinematics_integrator = "euler"
+        self.past_states = []  # To store past states for similarity checking
+        self.similarity_threshold = 0.1  # Define an appropriate threshold (e.g., 0.1)
+   
 
         # Angle at which to fail the episode
         self.theta_threshold_radians = 2*math.pi            #12 * 2 * math.pi / 360
@@ -100,10 +103,12 @@ class CartPole(gym.Env):
 
         # Goal definitions
         self.goal_state = np.array([0.0, 0.0, 0.0, 0.0])
-        self.goal_mask_s = np.array([1, 1, 0.1, 0.1])
-        self.goal_mask_a = np.array([0.001])
-        self._W = np.diag(self.goal_mask_s)
-        self._R = np.diag(self.goal_mask_a)
+        self.goal_tolerance =  0.01 
+        self.goal_mask_s = 2*np.array([1, 1, 0.1, 0.1])
+        self.goal_mask_a = 2*np.array([0.001])
+        self._W =  np.diag(self.goal_mask_s)
+        self._R =  np.diag(self.goal_mask_a)
+        self._W_f = np.diag(self.goal_mask_s)
         self.viewer = None
 
          # Initiate state
@@ -141,7 +146,7 @@ class CartPole(gym.Env):
         X0 = np.concatenate((v_st_0, mu_st_0), axis=0)
         return X0
     
-    def step(self, action ):
+    def step(self, action , steps):
 
         #err_msg = f"{action!r} ({type(action)}) invalid"
         #assert self.action_space.contains(action), err_msg
@@ -172,9 +177,14 @@ class CartPole(gym.Env):
         self.state = vertcat(theta, x, theta_dot, x_dot)
         self.state = np.array(self.state)
         self.obs = self.state.copy()
-        rew = self.reward_fn(self.state_prev, action)
-        info = ""
-        return (self.state, self.obs, rew, info)
+        #rew = self.reward_fn(self.state_prev, action)
+        rew  = self.reward_fn_2(self.state_prev, action,  steps)
+        done = np.linalg.norm(self.state - self.goal_state , 2) < self.goal_tolerance
+        if done:
+            reward =0.0
+        else:
+            reward = rew 
+        return (self.state, self.obs, reward, done)
     
     def reward_fn(self, state, action ):
         """
@@ -183,7 +193,32 @@ class CartPole(gym.Env):
         """
         state = state if state is not None else self.state.copy()
         r = state.T @ self._W @ state + self._R*(action)**2  #Need to defined reward style
-        return -r
+        return r
+    
+    def reward_fn_2(self, state, action, step, max_steps=250):
+        """
+        Compute reward for one timestep, including terminal cost if it's the last timestep.
+        
+        Parameters:
+        - state: The current state of the system.
+        - action: The current action taken by the agent.
+        - step: The current timestep in the episode.
+        - max_steps: The maximum number of steps (episode length).
+        
+        Returns:
+        - r: The reward for the given timestep, including terminal cost if at final step.
+        """
+        state = state if state is not None else self.state.copy()
+
+        # Regular reward term
+        r = state.T @ self._W @ state + self._R * (action)**2  # Quadratic reward function
+
+        # Check if terminal step (last step of the episode)
+        if step == max_steps:
+            terminal_cost = state.T @ self._W_f @ state  # Terminal cost using terminal cost matrix _W_f
+            r += terminal_cost
+        
+        return r
     
     def _parse_env_params(
         self,
@@ -228,27 +263,57 @@ class CartPole(gym.Env):
         return model_dyn
   
 
-    def reset(self,seed = None):
+    def reset(self, seed=None):
         """
-        Resets the state of the system and the noise generator
+        Resets the state of the system and generates a unique state
+        that has not been previously encountered within a similarity threshold.
 
-        Returns the state of the system
+        Parameters:
+            seed (int): Optional. Random seed for reproducibility.
 
+        Returns:
+            tuple: The current state and observation of the system.
         """
-        self.state =  np.array([np.pi, 1, 0, 0])
-
         if seed is not None:
-           np.random.seed(seed)
+            np.random.seed(seed)
 
-        self.state += np.random.uniform(low=-0.05, high=0.05, size=(4,)) # Adding small noise
-        self.state = self.state.clip(
-            self.observation_space.low, self.observation_space.high
-        )
+        unique_state_found = False
+        while not unique_state_found:
+            # Generate a candidate state
+            candidate_state = np.array([
+
+                np.random.uniform(low=0, high=np.pi), # X[0]
+
+                np.random.uniform(low=2, high=8),      # X[1]
+
+                0,                                     # X[2]
+                    
+                0                                      # X[3]
+            ])
+
+            # Clip the candidate state to stay within observation space limits
+            candidate_state = candidate_state.clip(
+                self.observation_space.low, self.observation_space.high
+            )
+
+            # Check if candidate state is unique within the similarity threshold
+            unique_state_found = all(
+                np.linalg.norm(candidate_state - past_state) > self.similarity_threshold
+                for past_state in self.past_states
+            )
+
+        # Update the state once a unique state is found
+        self.state = candidate_state
+        self.past_states.append(self.state.copy())  # Save to past states
+
+        # Set the observation and previous state
         self.state_prev = self.state.copy()
         self.obs = self.state.copy()
 
+        # Render if "human" mode is active
         if self.render_mode == "human":
             self.render()
+
         return self.state, self.obs
     
     def render(self):
@@ -368,3 +433,22 @@ class CartPole(gym.Env):
 
 
 
+"""
+def reset(self,seed = None):
+        self.state =  np.array([np.pi, 1, 0, 0])
+
+        if seed is not None:
+           np.random.seed(seed)
+
+        self.state += np.random.uniform(low=-0.05, high=0.05, size=(4,)) # Adding small noise
+        self.state = self.state.clip(
+             self.observation_space.low, self.observation_space.high
+        )
+        self.state_prev = self.state.copy()
+        self.obs = self.state.copy()
+
+        if self.render_mode == "human":
+            self.render()
+        return self.state, self.obs
+
+"""

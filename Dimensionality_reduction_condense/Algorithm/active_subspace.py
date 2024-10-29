@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # Find Eigen Value And Eigen Vector for sensitivity matrix S  
 # It's Nm*Nm so we will have Nm eigen values and Nm corresponding vector
 N= 100
-U_opt = np.load('U_opt1.npy')
+U_opt = np.load('U_optE.npy')
 
 def compute_U():
     m = len(U_opt[0])
@@ -57,9 +57,10 @@ for i,j in enumerate(eig_pairs):
 # here Nm×nv: based on the nv most informative eigenpairs
 # and thereby reducing the initial Nm-dimensional feature space into a nv-dimensional feature subspace.
 
-W = np.hstack((eig_pairs[0][1].reshape(N,1), eig_pairs[1][1].reshape(N,1) ,eig_pairs[2][1].reshape(N,1)))
-print('Matrix W:\n', W.real)
+W1 = np.hstack((eig_pairs[0][1].reshape(N,1), eig_pairs[1][1].reshape(N,1) ,eig_pairs[2][1].reshape(N,1)))
+#W = np.hstack([eig_vecs[:, i].reshape(-1, 1) for i in range(10)])
+print('Matrix W:\n', W1.real)
 
-np.save('dominant_active', W)
+np.save('dominant_active', W1)
 # 4.4. 
 #compute the activity score 

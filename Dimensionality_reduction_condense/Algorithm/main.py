@@ -11,7 +11,9 @@ from quadratics_cost_condense import Quadratic_stage_cost_model
 from MPCQlearning_condense import MPCQlearning
 from IPython.display import HTML
 from exploration import EpsilonGreedyExploration
+from schedulers import ExponentialScheduler
 from scipy.linalg import null_space
+from PrincipalComponentAnalysis import PrincipalComponentAnalysis
 
 class MPCfunapprox_ex(MPCfunapprox, ParamMPCformulation):
     def __init__(self, model, cost_model, agent_params, opt_params, train_it,exploration_strategy, seed=1):
@@ -89,10 +91,10 @@ def test_mpc_policy(env, policy, episodes=5):
         policy.Pf[2*nx + nu :(N *nu- nv)+ 2*nx + nu] = csd.mtimes(policy.T2.T, usol)
         frames.append(env.render())
 
-        for _ in range(n_steps):
+        for it in range(n_steps):
             act0, action, add_info = policy.act_forward(obs, Pf_val=Pf, P_learn=p_val,  mode=mode)
             
-            next_state, _, _, _ = env.step(act0)
+            next_state, _, _, _ = env.step(act0 ,it)
              #update u_tilda_k using feedback law 
             u_tilda_k = np.vstack([action[1:], action[-1, :]])
 
@@ -114,6 +116,11 @@ exploration_strategy = EpsilonGreedyExploration(
     seed=42  # For reproducibility
 )
 
+init_value = 1  # Start with full exploration (epsilon = 1)
+decay_factor = 0.95  # Reduce exploration by 5% per step
+
+exploration_scheduler = ExponentialScheduler(init_value=init_value, factor=decay_factor)
+
 env = CartPole('rgb_array')
 env.reset()
 
@@ -127,15 +134,18 @@ Q = Q * np.diag([1, 1, 0.1, 0.1])
 R = 1
 R = R * np.diag([0.001])
 
-x0 =  np.array([np.pi, 1,0, 0])  
+x0 =  np.array([np.pi, 1, 0, 0])  
 
 xSS=  np.array([0, 0 , 0, 0])
 
 
 
-#T1_0 = np.load('T1_G10.npy')
-#T2_0 = np.load('T2_G10.npy')
-T1_0 = np.load('dominant_active.npy')
+#T1_0=np.load('T1_RS1.npy')
+#T2_0 = null_space(T1_0.T)
+
+#T1_0 =np.load('T1_nv_10.npy')
+#T2_0 = np.load('T2_nv_10.npy')
+T1_0 = np.load('T1_RT11.npy')
 T2_0 = null_space(T1_0.T)
 nv = T1_0.shape[1]
 
@@ -143,7 +153,7 @@ nv = T1_0.shape[1]
 param = {"horizon":N,"x_0":x0,"Q":Q,"R":R,"S":Q , "x_SS":xSS,"n_v":nv}
 
 cost_model = Quadratic_stage_cost_model(env, param)
-
+pcA = PrincipalComponentAnalysis()
 # Create an instance of NominalMPC
 nominal_mpc = NominalMPC(model=env, opt_params=param)
 
@@ -151,7 +161,7 @@ u, usol = nominal_mpc.run_open_loop_mpc()
 
 w_0  =  csd.mtimes(T2_0.T, usol )
 
-n_steps = 200
+n_steps = 300
 
 seed = 1
 agent_params= {
@@ -162,19 +172,19 @@ agent_params= {
         "w": w_0,
         "eps": 0.25,
         "learning_params": {
-            "lr": 1e-3,
+            "lr": 1e-4,
             "tr": 0.2,
             "train_params": {
-                "iterations":100,
+                "iterations":30,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 100
+n_iterations = 30
 
 # Agent init
-agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_strategy)
+agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_scheduler)
 
 # Test run 
 _, obs = env.reset()
@@ -195,13 +205,21 @@ for it in range(n_iterations):
     print(f"Iteration: {it}")
     # agent training
     agent.train()
+    np.save('P_learnS',agent.P_learn)
+    np.save('iteration', it)
     print(f"rollout_return: {agent.learning_module.rollout_return}")
 
     stats['Returns'].append(agent.learning_module.rollout_return)
     stats['TD Loss'].append(agent.learning_module.average_td)
 
 U_opt = agent.learning_module.policy_theta
-np.save('U_opt1', U_opt)
+S = pcA.compute_sensitivity_matrix(U_opt)
+W ,nv_new = pcA.compute_active_subspace(S)
+np.save('U_optE_reduce', U_opt)
+np.save('S_reduce', S)
+np.save('W_reduce', W)
+
+
 
 T1 =  agent.P_learn
 T1 = np.array(T1).reshape(N*nu , nv , order='F')
@@ -212,9 +230,10 @@ w  = np.array(w).reshape( (N *nu - nv ), 1 )
 
 plot_stats(stats)
    
-np.save('T1_reduce.npy', T1)
-np.save('T2_reduce.npy', T2)
+np.save('T1_RT11S', T1)      
+np.save('T2_RT11S', T2)
 
 test_mpc_policy(env, agent)
 
 print(agent.P_learn)
+
