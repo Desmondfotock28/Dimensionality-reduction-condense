@@ -146,7 +146,7 @@ def compute_block_matrix( Q_base, R_base, N):
 
     
     # Construct the block diagonal matrix Q
-    Q_blocks = [Q_base] * N + [Q]
+    Q_blocks = [Q_base] * N + [Q_base]
 
     Q_d = np.block([[Q_blocks[i] if i == j else np.zeros_like(Q_base) for j in range(N+1)] for i in range(N+1)])
     
