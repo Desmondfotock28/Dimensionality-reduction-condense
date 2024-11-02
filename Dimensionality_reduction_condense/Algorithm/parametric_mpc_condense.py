@@ -9,6 +9,7 @@ import pymanopt
 import pymanopt.manifolds
 import pymanopt.optimizers
 from pymanopt.manifolds import Stiefel
+from scipy.linalg import expm
 
 
 class MPCfunapprox(ParamMPCformulation):
@@ -246,7 +247,7 @@ class MPCfunapprox(ParamMPCformulation):
         param_val = param_val if param_val is not None else self.P_learn
         if constrained_updates:
        
-            self.P_learn = self.Stiefel_param_update(dJ , param_val, lr)
+            self.P_learn = self.Stiefel_param_update1(dJ , param_val, lr)
             #self.P_learn = self.constraint_param_update(dJ, param_val)
             #self.P_learn = self.gramm_schmidt()
             self.compute_null_space()
@@ -274,6 +275,67 @@ class MPCfunapprox(ParamMPCformulation):
         #
         #self.update_step = cvx.Problem(cvx.Minimize(J_th)))
     
+    def Stiefel_param_update1(self, dJ, p_val, lr):
+        """
+        SDP on the Stiefel Manifold param update to ensure stable MPC formulation
+
+        :param p_val: Initial orthogonal matrix (shape n x k).
+        :param dJ: Expected value of the gradient of the parametrized state-action value function.
+        :param lr: Learning rate.
+        :return: Optimized matrix theta, or None if optimization fails.
+            """ 
+        try:
+            P_up = np.array(p_val).copy()
+            Jac = np.array(dJ).copy()
+            P_up = P_up.reshape(self.N * self.action_dim, self.nv, order='F')
+            Jac = Jac.reshape(self.N * self.action_dim, self.nv, order='F')
+            n, k = P_up.shape  # Dimensions of the matrix
+            lr =  10*lr
+            print("start RL update scheme")
+
+            # Define the Stiefel manifold
+            manifold = Stiefel(n, k)
+
+            @pymanopt.function.autograd(manifold)
+            def cost(point):
+                diff = point - P_up
+                # Smooth constraint violation using the log-sum-exp formula
+                rho = 1000  # Scaling factor for the penalty
+                u = 1.0      # Smoothing parameter
+
+                constraint_violation = rho * anp.sum(u * anp.log(1 + anp.exp((diff - 0.2) / u)) + u * anp.log(1 + anp.exp((-0.2 - diff) / u)))
+             
+                # Define the cost function
+                if k == 1:
+                    cost_n = 0.5 * anp.linalg.norm(diff) ** 2 + lr * anp.dot(dJ.T, diff)
+                else:
+                    cost_n = 0.5 * anp.linalg.norm(diff, 'fro') ** 2 + lr * anp.trace(Jac.T @ diff)
+
+                return cost_n + constraint_violation
+
+            # Set up the optimization problem on the Stiefel manifold
+            problem = pymanopt.Problem(manifold=manifold, cost=cost)
+
+            # Use the Steepest Descent optimizer with verbosity turned off
+            #optimizer = pymanopt.optimizers.SteepestDescent(verbosity=0)
+
+            #optimizer = pymanopt.optimizers.ConjugateGradient( beta_rule="PolakRibiere", orth_value=1e-5, verbosity=0)
+
+            optimizer =  pymanopt.optimizers.TrustRegions(verbosity=0)
+            
+            # Solve the optimization problem
+            result = optimizer.run(problem)
+
+            result.point = csd.vertcat(csd.reshape(result.point, -1, 1))
+            # Return the optimized matrix
+            result.point = np.array(result.point)
+
+            return result.point
+
+        except Exception as e:
+            # If any error occurs, print the error message and return None
+            print("SDP solver for cost param update failed:", str(e))
+            return p_val
 
     def Stiefel_param_update(self, dJ, p_val, lr ):
         

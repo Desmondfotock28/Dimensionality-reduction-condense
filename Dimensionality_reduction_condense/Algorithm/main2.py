@@ -15,6 +15,7 @@ from scipy.linalg import null_space
 from exploration import EpsilonGreedyExploration
 from schedulers import ExponentialScheduler
 from scipy.linalg import expm
+from PrincipalComponentAnalysis import PrincipalComponentAnalysis
 
 
 
@@ -51,11 +52,12 @@ Q = Q * np.diag([1, 1, 0.1, 0.1])
 R = 1
 R = R * np.diag([0.001])
 
-T1_0 = np.load('T1_RT11.npy')
+
+T1_0=np.load('T1_HessL.npy')
 T2_0 = null_space(T1_0.T)
 
 K = np.array([[119.959032  ,  27.09347287,  27.10575672,  25.59835605]])
-
+policy_theta =[]
 #T1_0=np.load('T1_newGram.npy')
 #T2_0 = null_space(T1_0.T)
 
@@ -72,6 +74,7 @@ cost_model = Quadratic_stage_cost_model(env, param)
 
 # Create an instance of NominalMPC
 nominal_mpc = NominalMPC(model=env, opt_params=param)
+pcA = PrincipalComponentAnalysis()
 
 u, usol = nominal_mpc.run_open_loop_mpc()
 
@@ -144,8 +147,15 @@ def rollout_sample(env, agent, mode="train"):
            #compute nominal cost
         J_n = add_info["soln"]['f']
         print("nominal_cost:",J_n)
-            
-       
+        if it==0:
+            J_fb =  _compute_cost(u_tilda_k, obs) 
+            print("feedback_cost:", J_fb)
+            if J_fb <= J_n:
+                act0 = u_tilda_k[:nu]
+            else:
+                pass
+        policy_theta.append(action)
+
         next_state, next_obs, reward, _ = env.step(act0 , it)
 
         if mode == "train":
@@ -210,17 +220,17 @@ agent_params= {
             "lr": 1e-4,
             "tr": 0.2,
             "train_params": {
-                "iterations": 10,
+                "iterations": 2,
                 "batch_size": 32
             },
             "constrained_updates": True
         }
     }
-n_iterations = 10
-n_trains = 1
+n_iterations = 2
+n_trains = 10
 n_evals = 0
 n_steps = 300
-max_len_buffer = 25
+max_len_buffer = 500
 
 # Experiment init
 replay_buffer = ReplayBuffer(max_len_buffer, seed)          
@@ -254,6 +264,8 @@ for it in range(n_iterations):
 
     print(f"Training rollout return: {np.mean(t_returns)}")
     # print(f"Evaluation rollout return: {np.mean(e_returns)}")
+
+
 stats = {'TD Loss': t_returns, 'Returns':  e_returns}
 # final evaluation performance
 
@@ -268,10 +280,20 @@ T1 = np.array(T1).reshape(N*nu , nv , order='F')
 T2 = agent.Pf[2*nx + nu + (N *nu - nv):]
 T2 = np.array(T2).reshape(N*nu , (N *nu - nv), order='F')
 
-np.save('T1_nv_3S.npy', T1)
-np.save('T2_nv_3S.npy', T2)
+np.save('T1_trainGS.npy', T1)
+np.save('T2_trainGS.npy', T2)
 
+U_opt = policy_theta
+np.save('U_optE_reduce2', U_opt)
+S = pcA.compute_sensitivity_matrix(U_opt)
+W ,nv_new = pcA.compute_active_subspace(S)
+np.save('W_reduce1', W)
 
 #print(agent.P_learn)
 
 #plot_stats(stats)
+
+"""
+T1_0 = np.load('T1_RT11.npy')
+T2_0 = null_space(T1_0.T)
+"""

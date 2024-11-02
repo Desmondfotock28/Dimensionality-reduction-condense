@@ -303,9 +303,10 @@ class CartPole(gym.Env):
             )
 
         # Update the state once a unique state is found
+        
         self.state = candidate_state
         self.past_states.append(self.state.copy())  # Save to past states
-
+        np.save('pass_state1', self.past_states)
         # Set the observation and previous state
         self.state_prev = self.state.copy()
         self.obs = self.state.copy()
@@ -313,7 +314,7 @@ class CartPole(gym.Env):
         # Render if "human" mode is active
         if self.render_mode == "human":
             self.render()
-
+       
         return self.state, self.obs
     
     def render(self):

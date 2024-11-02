@@ -127,14 +127,15 @@ env.reset()
 nx = env.observation_space.shape[0]
 nu = env.action_space.shape[0]
 N= 100
-
+state = np.load('pass_state.npy')
+x0 = state[2]
 Q = 1
 Q = Q * np.diag([1, 1, 0.1, 0.1])
 
 R = 1
 R = R * np.diag([0.001])
 
-x0 =  np.array([np.pi, 1, 0, 0])  
+#x0 =  np.array([np.pi, 1, 0, 0])  
 
 xSS=  np.array([0, 0 , 0, 0])
 
@@ -145,7 +146,9 @@ xSS=  np.array([0, 0 , 0, 0])
 
 #T1_0 =np.load('T1_nv_10.npy')
 #T2_0 = np.load('T2_nv_10.npy')
-T1_0 = np.load('T1_RT11.npy')
+#T1_0 = np.load('T1_G10_trainGS.npy')
+#T2_0 = null_space(T1_0.T)
+T1_0=np.load('T1_HessL.npy')
 T2_0 = null_space(T1_0.T)
 nv = T1_0.shape[1]
 
@@ -175,13 +178,13 @@ agent_params= {
             "lr": 1e-4,
             "tr": 0.2,
             "train_params": {
-                "iterations":30,
+                "iterations":500,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 30
+n_iterations = 500
 
 # Agent init
 agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_scheduler)
@@ -230,8 +233,8 @@ w  = np.array(w).reshape( (N *nu - nv ), 1 )
 
 plot_stats(stats)
    
-np.save('T1_RT11S', T1)      
-np.save('T2_RT11S', T2)
+np.save('T1_train', T1)      
+np.save('T2_train', T2)
 
 test_mpc_policy(env, agent)
 

@@ -27,6 +27,11 @@ class MPCQlearning:
 
         """
         state, obs = self.mpc.model.reset()
+        pass_state = np.load('pass_state.npy')
+        #just for test purpose 
+        state = pass_state[10] + np.random.uniform(low=-0.05, high=0.05, size=(4,)) # Adding small noise
+        obs = state
+        print(obs)
         nx = obs.shape[0]
         self.mpc.reset(obs)
         del_J = 0.0

@@ -176,7 +176,7 @@ def compute_hessian(A, B, Q_base, R_base, N):
     P = dare(A, B, Q_base, R_base)[0]
     
     # Construct the block diagonal matrix Q
-    Q_blocks = [Q_base] * (N - 1) + [Q]
+    Q_blocks = [Q_base] * (N - 1) + [Q_base]
     Q_d = np.block([[Q_blocks[i] if i == j else np.zeros_like(Q_base) for j in range(N)] for i in range(N)])
     
     # Construct the block diagonal matrix R
@@ -278,10 +278,9 @@ Q = Q * np.diag([1, 1, 0.1, 0.1])
 R = 1
 R = R * np.diag([0.001])
 
-
 # Define the stage cost and terminal cost
 m = 0.1 # mass of pendulum (kg)
-M = 1  # mass of cart (kg)
+M = 1.0  # mass of cart (kg)
 g = 9.81  #  acceleration due to gravity m/s^2
 l = 0.8    # length of pendulum 
 # continuos-time Linearise system matrices 
@@ -402,18 +401,10 @@ def Pi_opt_formulation():
 
 lbg_vcsd, ubg_vcsd, G_vcsd , pisolver = Pi_opt_formulation()
 
-#x0 = np.array([np.pi, 1.0, 0, 0]) + np.random.uniform(low=-0.05, high=0.05, size=(4,))
+#x0 =  np.array([np.pi, 1.0, 0, 0]) + np.random.uniform(low=-0.05, high=0.05, size=(4,))
+state = np.load('pass_state.npy')
+x0 = state[10]
 
-x0  = np.array([
-
-                np.random.uniform(low=0, high=np.pi), # X[0]
-
-                np.random.uniform(low=2, high=8),      # X[1]
-
-                0,                                     # X[2]
-                    
-                0                                      # X[3]
-            ])
 
 def run_open_loop_mpc(x0, u0 , solver ):
       # Initial control inputs and state
@@ -503,38 +494,27 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
 
 Ts = 0.01
 sim_time = 3
-#x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
+x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
 
-for it in range(5): 
-    x0  = np.array([
-
-                np.random.uniform(low=0, high=np.pi), # X[0]
-
-                np.random.uniform(low=2, high=8),      # X[1]
-
-                0,                                     # X[2]
-                    
-                0                                      # X[3]
-            ])
-
-    x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
-
-    cost_n_np = [float(cost.full().flatten()) for cost in cost_nn]
-    plt.figure(figsize=(10, 5))
-    plt.plot(cost_n_np, label='Cost_n', marker='o')
-    plt.xlabel('Iteration')
-    plt.ylabel('Cost')
-    plt.title('Nominal Cost')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+cost_n_np = [float(cost.full().flatten()) for cost in cost_nn]
+plt.figure(figsize=(10, 5))
+plt.plot(cost_n_np, label='Cost_n', marker='o')
+plt.xlabel('Iteration')
+plt.ylabel('Cost')
+plt.title('Nominal Cost')
+plt.legend()
+plt.grid(True)
+plt.show()
 
 
 # Load the saved T1 and T2
 #T1 = np.load('dominant_active.npy')
 #T2 = null_space(T1.T)
-#T1=np.load('T1_nv_10.npy')
-#T2 = null_space(T1.T)
+#T1=np.load('T1_HessL.npy')
+#T2=np.load('T2_HessL.npy')
+
+T1 = np.load('T1_train.npy')
+T2 = null_space(T1.T)
 
 #nv = 3
 #T1=np.load('P_learnS.npy')
@@ -545,8 +525,8 @@ for it in range(5):
 #T1=np.load('W.npy')
 #T2= null_space(T1.T)
 
-T1 =np.load('T1_nv_3S.npy')
-T2 = np.load('T2_nv_3S.npy')
+#T1 =np.load('T1_nv_3S.npy')
+#T2 = np.load('T2_nv_3S.npy')
 
 #T1 = np.load('T1_RT11S.npy')
 #T2= null_space(T1.T)
@@ -703,17 +683,17 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
         x_ol.append(x0)
 
          #compute u_fb
-        #u_fb = mtimes(K,x0)
+        u_fb = mtimes(K,x0)
 
-        #if x0[0]<= np.pi/3 and x0[0]>=-np.pi/3:
-           # act_n =  reshape(u_fb, 1, -1)
+        if x0[0]<= np.pi/3 and x0[0]>=-np.pi/3:
+            act_n =  reshape(u_fb, 1, -1)
                 
-       # else:
-            #act_n = Usol[(N-1)*nu:]
+        else:
+            act_n = Usol[(N-1)*nu:]
             
         #update u_tilda_k 
-        #u_tilda_k = np.vstack([Usol[nu:], act_n])
-        u_tilda_k = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
+        u_tilda_k = np.vstack([Usol[nu:], act_n])
+        #u_tilda_k = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
         
         u_tilda_k =vertcat(reshape(u_tilda_k, -1, 1))
         #update w_k 
@@ -791,3 +771,46 @@ def plot_results3(t, x, u, x_a, u_a, xSS, uSS, fignum):
 
 
 plot_results3(t_p, x_ol, u_cl, x_ol_p ,  u_cl_p , xSS, uSS, [1, 2])
+
+
+"""
+x0  = np.array([
+
+                np.random.uniform(low=0, high=np.pi), # X[0]
+
+                np.random.uniform(low=2, high=8),      # X[1]
+
+                0,                                     # X[2]
+                    
+                0                                      # X[3]
+            ])
+"""
+
+"""
+#Objective and Constrains
+Q = 1
+Q = Q * np.diag([1, 1, 0.1, 0.1])
+
+R = 1
+R = R * np.diag([0.001])
+
+
+# Define the stage cost and terminal cost
+m = 0.1 # mass of pendulum (kg)
+M = 1  # mass of cart (kg)
+g = 9.81  #  acceleration due to gravity m/s^2
+l = 0.8    # length of pendulum 
+# continuos-time Linearise system matrices 
+
+
+
+# State constraints
+lb_x = np.array([-np.finfo(np.float32).max,  -10, -np.finfo(np.float32).max, -np.finfo(np.float32).max])
+ub_x = np.array([  np.finfo(np.float32).max,  10,  np.finfo(np.float32).max, np.finfo(np.float32).max])
+
+lbx = [lb_x[1:2]]*(N + 1) 
+ubx = [ub_x[1:2]]*(N + 1)
+lbx = vertcat(*lbx)
+ubx = vertcat (*ubx)
+
+"""
