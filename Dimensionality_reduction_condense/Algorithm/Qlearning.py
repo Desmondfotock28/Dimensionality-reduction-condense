@@ -5,6 +5,7 @@ class Qlearning:
         # hyperparameters
         self.mpc = mpc
         self._parse_agent_params(**learning_params)
+   
 
     def train(self, replay_buffer: ReplayBuffer):
         """
@@ -21,6 +22,7 @@ class Qlearning:
                 TD_error: observed TD_error}
 
         """
+        self.TD_avg=0
         td_avg = 0
         batch_size = min(self.batch_size, replay_buffer.size)
         train_it = min(self.iterations, int(3.0 * replay_buffer.size / batch_size))
@@ -63,7 +65,7 @@ class Qlearning:
             # RL update step
             self.mpc.param_update(del_J, constrained_updates=self.constrained_updates)
         print(f"Averaged TD error: {td_avg / train_it}")
-
+        self.TD_avg = td_avg / train_it
     def _parse_agent_params(self, lr, tr, train_params, constrained_updates=False):
         self.lr = lr
         self.tr = tr

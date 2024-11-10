@@ -11,51 +11,57 @@ class PrincipalComponentAnalysis:
         self.threshold = threshold
         self.nv_new = None  # New active subspace dimension
         
-    def compute_sensitivity_matrix(self,U_opt):
-        """Compute the sensitivity matrix S (U_hat)."""
-        m = len(U_opt[0])
+    def compute_sensitivity_matrix(self, U_opt):
+        """Compute the sensitivity matrix S (U_hat) with centered data."""
+        # Centering the data points
+        U_centered = [u - np.mean(u, axis=0) for u in U_opt]
+
+        # Compute U_hat (sensitivity matrix)
+        m = len(U_centered[0])
         U_hat = np.zeros((m, m))
 
-        for u in U_opt:
+        for u in U_centered:
             U_hat += u @ u.T
 
-        S = U_hat / len(U_opt) 
+        S = U_hat / len(U_centered)
 
         return S    
     
-    def compute_PCA(self,S):
+    def compute_PCA(self, S):
         """Compute eigenvalues and eigenvectors of the sensitivity matrix S."""
-    
         # Eigen decomposition of S
         eig_vals, eig_vecs = np.linalg.eig(S)
 
         # Sort eigenvalues and eigenvectors by decreasing eigenvalue
-        eig_pairs = [(np.abs(eig_vals[i]), eig_vecs[:, i]) for i in range(len(eig_vals))]
+        eig_pairs = [(np.abs(eig_vals[i]), eig_vecs[:, i].real) for i in range(len(eig_vals))]
         eig_pairs = sorted(eig_pairs, key=lambda k: k[0], reverse=True)
 
         # Calculate cumulative variance contribution
         eigv_sum = sum(eig_vals)
         variance = []
-        for i,j in enumerate(eig_pairs):
-            variance.append((j[0]/eigv_sum).real)
+        for i, j in enumerate(eig_pairs):
+            variance.append((j[0] / eigv_sum).real)
         
         variance = np.array(variance)
-        counter =0
+        counter = 0
+
         # Determine nv_new: the number of eigenvalues with at least 2% variance
         for var in variance:
-            if var>= self.threshold:
-                counter+=1
+            if var >= self.threshold:
+                counter += 1
             else:
                 pass
+
         self.nv_new = counter
 
-        #self.nv_new = np.argmax(variance >= self.threshold) + 1
-        return  eig_vecs 
-    
-    def compute_active_subspace(self,S):
-        eig_vecs  = self.compute_PCA(S)
-        
+        return eig_vecs
+
+    def compute_active_subspace(self, S):
+        eig_vecs = self.compute_PCA(S)
+
         # Select the top-nv_new eigenvectors
         W = np.hstack([eig_vecs[:, i].reshape(-1, 1) for i in range(self.nv_new)])
 
-        return W ,self.nv_new
+        return W, self.nv_new
+
+

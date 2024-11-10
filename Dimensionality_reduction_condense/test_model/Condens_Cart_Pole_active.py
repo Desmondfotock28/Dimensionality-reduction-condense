@@ -247,7 +247,7 @@ Ts = 0.01    #sampling time in [s]
 
 N =  100     #prediction horizon
 
-tf= 2
+tf= 3
 
 nx= 4       #state dimension 
 
@@ -371,7 +371,7 @@ def inequality_constraints():
     hu.append(U - ubu)
     hx.append(lbx-X)
     hx.append(X - ubx)
-    hx.append(G[N*nx:].T@P_x@G[N*nx:]-1)
+    #hx.append(G[N*nx:].T@P_x@G[N*nx:]-1)
     return  hu, hx
 
 def Pi_opt_formulation():
@@ -419,7 +419,7 @@ def run_open_loop_mpc(x0, u0 , solver ):
     u_st_0 = np.tile(u0, (N, 1))
 
     args_p =  np.array(
-            [[np.pi, 1, 0, 0] ]
+            [x0]
         )
     
     args_p= vertcat(*args_p)
@@ -440,7 +440,10 @@ def run_open_loop_mpc(x0, u0 , solver ):
 
 u0 = 80
 
-x0 = np.array([np.pi, 1, 0, 0])
+#x0 = np.array([np.pi, 1, 0, 0])
+
+state = np.load('pass_state1.npy')
+x0 = state[0]
 
 xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
 
@@ -464,7 +467,7 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
     u_cl = []    # Store control inputs in the closed loop
     goal_tolerance = 0.01  # Define a goal tolerance
     u_st_0 = np.tile(u0, (N, 1))
-    args_p = np.array([[np.pi, 1, 0, 0]])
+    args_p = np.array([x0])
     args_p = vertcat(*args_p)
     cost_n = []
     Hessians = []
@@ -548,11 +551,11 @@ def eigen_decomposition(C_hat):
 
 eigenvectors, D = eigen_decomposition(C_hat)
 
-T1 , T2 =select_active_inactive_subspaces_1(D, eigenvectors,  percentage=0.1)
+T1 , T2 =select_active_inactive_subspaces_1(D, eigenvectors,  percentage=0.3)
 
 # Load the saved T1 and T2
-np.save('T1_nv_10.npy',T1)
-np.save('T2_nv_10.npy',T2)
+np.save('T1_nv_30.npy',T1)
+np.save('T2_nv_30.npy',T2)
 
 #T1 = np.load('T1_100SR1.npy')
 #T2 = np.load('T2_100SR1.npy')

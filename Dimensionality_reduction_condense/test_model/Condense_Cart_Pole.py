@@ -282,7 +282,7 @@ R = R * np.diag([0.001])
 m = 0.1 # mass of pendulum (kg)
 M = 1.0  # mass of cart (kg)
 g = 9.81  #  acceleration due to gravity m/s^2
-l = 0.8    # length of pendulum 
+l = 0.8   # length of pendulum 
 # continuos-time Linearise system matrices 
 
 A = np.array([[0, 0, 1, 0], [0, 0, 0, 1], [((m + M)*g)/(l*M), 0, 0, 0], [(-m*g)/M, 0, 0, 0]])
@@ -402,8 +402,11 @@ def Pi_opt_formulation():
 lbg_vcsd, ubg_vcsd, G_vcsd , pisolver = Pi_opt_formulation()
 
 #x0 =  np.array([np.pi, 1.0, 0, 0]) + np.random.uniform(low=-0.05, high=0.05, size=(4,))
-state = np.load('pass_state.npy')
-x0 = state[10]
+
+
+state = np.load('train_state1.npy')
+
+x0 = state[0]
 
 
 def run_open_loop_mpc(x0, u0 , solver ):
@@ -431,15 +434,17 @@ def run_open_loop_mpc(x0, u0 , solver ):
     return xsol, u ,usol
 
 u0 = 80
-
-
-
-xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
-
 xSS=  np.array([0, 0 , 0, 0])
 uSS = 0
 t_ol = linspace(0,tf , N+1)
+
+
+xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
+        
 plot_results(t_ol, xsol, u_ol.T, xSS, uSS, [1, 2])
+    
+
+
 
 #condense run close loop 
 
@@ -460,7 +465,7 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
     args_p = vertcat(*args_p)
     cost_n = []
     
-    while np.linalg.norm(x0 - x_goal, 2) > goal_tolerance and mpc_i < int(sim_time / Ts):
+    while  mpc_i < int(sim_time / Ts):
 
         args_p = x0
         args_x0 =  u_st_0.T.reshape(-1)
@@ -492,9 +497,21 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
     
     return x_ol, u_cl, t, cost_n 
 
+print(x0)
 Ts = 0.01
 sim_time = 3
 x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
+
+#compute closed loop traj for first 100 initial state:
+#U_cl= []
+#X_init = []
+#for k in range(100):
+    #x0 = state[k]
+    #x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
+   # X_init.append(x0)
+    #U_cl.append(u_cl)
+#np.save('U_cl', U_cl)
+#np.save('X_init',X_init)
 
 cost_n_np = [float(cost.full().flatten()) for cost in cost_nn]
 plt.figure(figsize=(10, 5))
@@ -507,30 +524,13 @@ plt.grid(True)
 plt.show()
 
 
-# Load the saved T1 and T2
-#T1 = np.load('dominant_active.npy')
-#T2 = null_space(T1.T)
-#T1=np.load('T1_HessL.npy')
-#T2=np.load('T2_HessL.npy')
 
-T1 = np.load('T1_train.npy')
-T2 = null_space(T1.T)
+#T1=np.load('T1_trainGS.npy')
+T1=np.load('W_reduce1.npy')
+T2= null_space(T1.T)
 
-#nv = 3
-#T1=np.load('P_learnS.npy')
-#T1 = np.array(reshape(T1, N*nu, nv ))
-#T1 = np.array(T1).reshape(N*nu , nv , order='F')
-#T2 = null_space(T1.T)
-
-#T1=np.load('W.npy')
-#T2= null_space(T1.T)
-
-#T1 =np.load('T1_nv_3S.npy')
-#T2 = np.load('T2_nv_3S.npy')
-
-#T1 = np.load('T1_RT11S.npy')
-#T2= null_space(T1.T)
-
+#T1 =np.load('T1_train200.npy')
+#T2 = np.load('T2_train200.npy')
 
 nv = T1.shape[1]
 
@@ -652,7 +652,7 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
             reshape(x0, -1, 1), 
             reshape(w_k, -1, 1)
         ) 
-    while np.linalg.norm(x0 - x_goal, 2) > goal_tolerance and mpc_i < int(sim_time / Ts):
+    while  mpc_i < int(sim_time / Ts):
          
         P_init[:nx] = x0
         P_init[nx:] = w_k
@@ -683,17 +683,17 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
         x_ol.append(x0)
 
          #compute u_fb
-        u_fb = mtimes(K,x0)
+        #u_fb = mtimes(K,x0)
 
-        if x0[0]<= np.pi/3 and x0[0]>=-np.pi/3:
-            act_n =  reshape(u_fb, 1, -1)
+        #if x0[0]<= np.pi/3 and x0[0]>=-np.pi/3:
+            #act_n =  reshape(u_fb, 1, -1)
                 
-        else:
-            act_n = Usol[(N-1)*nu:]
+        #else:
+            #act_n = Usol[(N-1)*nu:]
             
         #update u_tilda_k 
-        u_tilda_k = np.vstack([Usol[nu:], act_n])
-        #u_tilda_k = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
+        #u_tilda_k = np.vstack([Usol[nu:], act_n])
+        u_tilda_k = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
         
         u_tilda_k =vertcat(reshape(u_tilda_k, -1, 1))
         #update w_k 
@@ -714,6 +714,16 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
     return x_ol ,  u_cl , t, cost_fn
 
 x_ol_p ,  u_cl_p ,t_p , cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
+
+#U_cl_a= []
+
+#for k in range(100):
+    #x0 = state[k]
+   # xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
+    #x_ol_p ,  u_cl_p ,t_p , cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
+    #U_cl_a.append(u_cl_p)
+#np.save('U_cl_a', U_cl_a)
+
 
 #np.save('x_ol_p1_nv5', x_ol_p)
 #np.save('u_cl_p1_nv5', u_cl_p)
@@ -813,4 +823,17 @@ ubx = [ub_x[1:2]]*(N + 1)
 lbx = vertcat(*lbx)
 ubx = vertcat (*ubx)
 
+"""
+
+"""
+#Objective and Constrains
+Q = 1
+Q = Q * np.diag([1, 1, 0.1, 0.1])
+
+R = 1
+R = R * np.diag([0.001])
+"""
+
+"""
+while np.linalg.norm(x0 - x_goal, 2) > goal_tolerance and mpc_i < int(sim_time / Ts):
 """

@@ -53,7 +53,7 @@ R = 1
 R = R * np.diag([0.001])
 
 
-T1_0=np.load('T1_HessL.npy')
+T1_0=np.load('W_reduce0.npy')
 T2_0 = null_space(T1_0.T)
 
 K = np.array([[119.959032  ,  27.09347287,  27.10575672,  25.59835605]])
@@ -75,7 +75,6 @@ cost_model = Quadratic_stage_cost_model(env, param)
 # Create an instance of NominalMPC
 nominal_mpc = NominalMPC(model=env, opt_params=param)
 pcA = PrincipalComponentAnalysis()
-
 u, usol = nominal_mpc.run_open_loop_mpc()
 
 w_0  =  csd.mtimes(T2_0.T, usol )
@@ -135,6 +134,7 @@ def perturb_parameter_space( p_val, epsilon=1e-3):
 def rollout_sample(env, agent, mode="train"):
     state, obs = env.reset()
     agent.reset(obs)
+    print(obs)
     rollout_return = 0
     rollout_buffer = BasicBuffer()
     u_tilda_k ,  usol  = agent.P(obs)
@@ -146,14 +146,9 @@ def rollout_sample(env, agent, mode="train"):
 
            #compute nominal cost
         J_n = add_info["soln"]['f']
+
         print("nominal_cost:",J_n)
-        if it==0:
-            J_fb =  _compute_cost(u_tilda_k, obs) 
-            print("feedback_cost:", J_fb)
-            if J_fb <= J_n:
-                act0 = u_tilda_k[:nu]
-            else:
-                pass
+        
         policy_theta.append(action)
 
         next_state, next_obs, reward, _ = env.step(act0 , it)
@@ -188,6 +183,28 @@ def rollout_sample(env, agent, mode="train"):
     return rollout_return, rollout_buffer
 
 
+def plot_stats1(stats):
+    rows = len(stats)
+    cols = 1
+
+    fig, ax = plt.subplots(rows, cols, figsize=(12, 6))
+
+    for i, key in enumerate(stats):
+        vals = stats[key]
+        # Calculate a moving average to smooth the plot
+        smoothed_vals = [np.mean(vals[j-10:j+10]) for j in range(10, len(vals)-10)]
+        if len(stats) > 1:
+            ax[i].plot(range(len(smoothed_vals)), smoothed_vals)
+            ax[i].set_title(key, size=18)
+        else:
+            ax.plot(range(len(smoothed_vals)), smoothed_vals)
+            ax.set_title(key, size=18)
+    
+    plt.tight_layout()
+
+    plt.show()
+
+
 def plot_stats(stats):
     rows = len(stats)
     cols = 1
@@ -220,15 +237,15 @@ agent_params= {
             "lr": 1e-4,
             "tr": 0.2,
             "train_params": {
-                "iterations": 2,
+                "iterations": 200,
                 "batch_size": 32
             },
             "constrained_updates": True
         }
     }
-n_iterations = 2
+n_iterations = 200
 n_trains = 10
-n_evals = 0
+n_evals = 1
 n_steps = 300
 max_len_buffer = 500
 
@@ -242,7 +259,7 @@ _, obs = env.reset()
 agent.reset(obs)
 act0, act, info = agent.act_forward(obs)
 
-
+stats = {'TD Loss': [], 'Training Returns': [], 'Evaluation Returns': []}
 # main loop
 for it in range(n_iterations):
     print(f"Iteration: {it}")
@@ -253,20 +270,27 @@ for it in range(n_iterations):
         rollout_return, rollout_buffer = rollout_sample(env, agent, mode="train")
         replay_buffer.push(rollout_buffer.buffer)
         t_returns.append(rollout_return)
+
+    # Save training returns to stats
+    stats['Training Returns'].extend(t_returns)
    
     # agent training
     agent.train(replay_buffer)
-
+    stats['TD Loss'].append(agent.learning_module.TD_avg)
+    np.save('P_learn1S',agent.P_learn)
     # training rollouts
     for _ in range(n_evals):
         rollout_return, rollout_buffer = rollout_sample(env, agent, mode="eval")
         e_returns.append(rollout_return)
+    
+    # Save evaluation returns to stats
+    stats['Evaluation Returns'].extend(e_returns)
 
     print(f"Training rollout return: {np.mean(t_returns)}")
     # print(f"Evaluation rollout return: {np.mean(e_returns)}")
 
+#stats = {'TD Loss': t_returns, 'Returns':  e_returns}
 
-stats = {'TD Loss': t_returns, 'Returns':  e_returns}
 # final evaluation performance
 
 #f_returns = []
@@ -280,10 +304,10 @@ T1 = np.array(T1).reshape(N*nu , nv , order='F')
 T2 = agent.Pf[2*nx + nu + (N *nu - nv):]
 T2 = np.array(T2).reshape(N*nu , (N *nu - nv), order='F')
 
-np.save('T1_trainGS.npy', T1)
-np.save('T2_trainGS.npy', T2)
+np.save('T1_train200_reduce.npy', T1)
+np.save('T2_train200_reduce.npy', T2)
 
-U_opt = policy_theta
+U_opt = np.array(policy_theta)
 np.save('U_optE_reduce2', U_opt)
 S = pcA.compute_sensitivity_matrix(U_opt)
 W ,nv_new = pcA.compute_active_subspace(S)
@@ -291,9 +315,19 @@ np.save('W_reduce1', W)
 
 #print(agent.P_learn)
 
-#plot_stats(stats)
+plot_stats1(stats)
 
 """
 T1_0 = np.load('T1_RT11.npy')
 T2_0 = null_space(T1_0.T)
+"""
+
+"""
+if it==0:
+            J_fb =  _compute_cost(u_tilda_k, obs) 
+            print("feedback_cost:", J_fb)
+            if J_fb <= J_n:
+                act0 = u_tilda_k[:nu]
+            else:
+                pass
 """

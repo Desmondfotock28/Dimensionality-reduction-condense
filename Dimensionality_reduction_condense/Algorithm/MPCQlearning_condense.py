@@ -27,10 +27,6 @@ class MPCQlearning:
 
         """
         state, obs = self.mpc.model.reset()
-        pass_state = np.load('pass_state.npy')
-        #just for test purpose 
-        state = pass_state[10] + np.random.uniform(low=-0.05, high=0.05, size=(4,)) # Adding small noise
-        obs = state
         print(obs)
         nx = obs.shape[0]
         self.mpc.reset(obs)
@@ -53,12 +49,12 @@ class MPCQlearning:
         for it in range(self.mpc.train_it):
 
             act0, action, add_info = self.mpc.act_forward(obs, mode=mode)
-              #compute nominal cost
-            J_n = add_info["soln"]['f']
-            print("nominal_cost:",J_n)
         
                         #store the optimal policy
             self.policy_theta.append(np.array(action))
+
+            J_n = add_info["soln"]['f']
+            print("nominal_cost:",J_n)
          
             #calculate and record the stage cost L_θ (s_k,a_k ), 
             next_state, next_obs, reward, done_step = self.mpc.model.step(act0, it)
@@ -105,8 +101,8 @@ class MPCQlearning:
         self.mpc.param_update(del_J, constrained_updates=self.constrained_updates)
         self.average_td = td_avg / self.mpc.train_it
         # Step the exploration strategy to decay epsilon
-        self.exploration_strategy.step()
-        print(self.exploration_strategy.value)
+        # self.exploration_strategy.step()
+        #print(self.exploration_strategy.value)
         print(f"Averaged TD error: {td_avg / self.mpc.train_it}")
 
 
@@ -218,5 +214,20 @@ class MPCQlearning:
             u_fb =csd.mtimes(self.K,next_obs)   #controller.control_action(x0)
              # Initialize previous nominal cost as None
         #previous_nominal_cost = None
+
+              #compute nominal cost
+            J_n = add_info["soln"]['f']
+            print("nominal_cost:",J_n)
+
+            if it==0:
+                J_fb =  self._compute_cost(u_tilda_k, obs) 
+                print("feedback_cost:", J_fb)
+
+            if J_fb < J_n:
+                act0 = u_tilda_k[:nu]
+
+            else:
+                
+                pass
          
 """

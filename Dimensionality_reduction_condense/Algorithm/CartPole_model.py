@@ -57,34 +57,35 @@ class CartPole(gym.Env):
         "render_fps": 50,
     }
 
-    def __init__(self,  render_mode: Optional[str] = None):
-        super().__init__()
+    def __init__(self, render_mode: Optional[str] = None):
+        super().__init__()  # Ensure you call the parent class constructor properly
         self.gravity = 9.81
         self.masscart = 1.0
         self.masspole = 0.1
         self.total_mass = self.masspole + self.masscart
-        self.length = 0.8 # actually half the pole's length
+        self.length = 0.8  # actually half the pole's length
         self.tau = 0.01  # seconds between state updates
         self.kinematics_integrator = "euler"
         self.past_states = []  # To store past states for similarity checking
         self.similarity_threshold = 0.1  # Define an appropriate threshold (e.g., 0.1)
-   
+        
+        # Load states and initialize visit counter
+        self.train_states = np.load('train_state1.npy')
+        self.state_visit_counts = np.zeros(len(self.train_states)) 
 
         # Angle at which to fail the episode
-        self.theta_threshold_radians = 2*math.pi            #12 * 2 * math.pi / 360
+        self.theta_threshold_radians = 2 * math.pi
         self.x_threshold = 10.0
-        # Angle limit set to 2 * theta_threshold_radians so failing observation
-        # is still within bounds.
 
         # State and action space
         self.state_space = Box(
             low=np.array([-np.finfo(np.float32).max, -10, -np.finfo(np.float32).max, -np.finfo(np.float32).max]),
-            high=np.array([np.finfo(np.float32).max,  10 , np.finfo(np.float32).max, np.finfo(np.float32).max], dtype=np.float32),
+            high=np.array([np.finfo(np.float32).max, 10, np.finfo(np.float32).max, np.finfo(np.float32).max], dtype=np.float32),
         )
 
         self.observation_space = Box(
             low=np.array([-np.finfo(np.float32).max, -10, -np.finfo(np.float32).max, -np.finfo(np.float32).max]),
-            high=np.array([np.finfo(np.float32).max,  10 , np.finfo(np.float32).max, np.finfo(np.float32).max], dtype=np.float32),
+            high=np.array([np.finfo(np.float32).max, 10, np.finfo(np.float32).max, np.finfo(np.float32).max], dtype=np.float32),
         )
 
         self.action_space = Box(low=-80.0, high=80.0, shape=(1,), dtype=np.float32)
@@ -103,15 +104,15 @@ class CartPole(gym.Env):
 
         # Goal definitions
         self.goal_state = np.array([0.0, 0.0, 0.0, 0.0])
-        self.goal_tolerance =  0.01 
-        self.goal_mask_s = 2*np.array([1, 1, 0.1, 0.1])
-        self.goal_mask_a = 2*np.array([0.001])
-        self._W =  np.diag(self.goal_mask_s)
-        self._R =  np.diag(self.goal_mask_a)
+        self.goal_tolerance = 0.01 
+        self.goal_mask_s = 2 * np.array([1, 1, 0.1, 0.1])
+        self.goal_mask_a = 2 * np.array([0.001])
+        self._W = np.diag(self.goal_mask_s)
+        self._R = np.diag(self.goal_mask_a)
         self._W_f = np.diag(self.goal_mask_s)
         self.viewer = None
 
-         # Initiate state
+        # Initiate state
         self.reset()
 
     def get_obs(self, obs):
@@ -159,8 +160,8 @@ class CartPole(gym.Env):
         sintheta = np.sin(theta)
         d11 = self.length*(self.masspole*sintheta*sintheta+ self.masscart)
         d22 =  self.masscart*sintheta*sintheta+ self.masscart
-        thetaacc = (1/d11)*((self.total_mass)*self.gravity*sintheta-self.masspole*self.length*theta_dot**2*sintheta*costheta - costheta*action)
-        xacc = (1/d22)*(-self.masspole*self.gravity*self.length*costheta*sintheta + self.masspole*self.length*theta_dot**2*sintheta + action)
+        thetaacc = (1/d11)((self.total_mass)*self.gravity*sintheta-self.masspole*self.length*theta_dot*2*sintheta*costheta - costheta*action)
+        xacc = (1/d22)(-self.masspole*self.gravity*self.length*costheta*sintheta + self.masspole*self.length*theta_dot*2*sintheta + action)
 
         if self.kinematics_integrator == "euler":
             x = x + self.tau * x_dot
@@ -242,9 +243,9 @@ class CartPole(gym.Env):
         dx1 = x[2]
         dx2 = x[3]
 
-        dx3 =(1/d11)*((m + M)*g*sin(x[0])-m*l*x[2]**2*sin(x[0])*cos(x[0]) - cos(x[0])*u)
+        dx3 =(1/d11)*((m + M)*g*sin(x[0])-m*l*x[2]*2*sin(x[0])*cos(x[0]) - cos(x[0])*u)
 
-        dx4 =(1/d22)*(-m*g*l*cos(x[0])*sin(x[0]) + m*l*x[2]**2*sin(x[0]) + u)
+        dx4 =(1/d22)*(-m*g*l*cos(x[0])*sin(x[0]) + m*l*x[2]*2*sin(x[0]) + u)
 
         dx = vertcat(dx1, dx2, dx3, dx4)
         return dx
@@ -264,49 +265,36 @@ class CartPole(gym.Env):
   
 
     def reset(self, seed=None):
+
         """
+
         Resets the state of the system and generates a unique state
         that has not been previously encountered within a similarity threshold.
 
-        Parameters:
-            seed (int): Optional. Random seed for reproducibility.
-
-        Returns:
-            tuple: The current state and observation of the system.
         """
         if seed is not None:
+            
             np.random.seed(seed)
-
-        unique_state_found = False
-        while not unique_state_found:
-            # Generate a candidate state
-            candidate_state = np.array([
-
-                np.random.uniform(low=0, high=np.pi), # X[0]
-
-                np.random.uniform(low=2, high=8),      # X[1]
-
-                0,                                     # X[2]
-                    
-                0                                      # X[3]
-            ])
-
-            # Clip the candidate state to stay within observation space limits
-            candidate_state = candidate_state.clip(
-                self.observation_space.low, self.observation_space.high
-            )
-
-            # Check if candidate state is unique within the similarity threshold
-            unique_state_found = all(
-                np.linalg.norm(candidate_state - past_state) > self.similarity_threshold
-                for past_state in self.past_states
-            )
-
-        # Update the state once a unique state is found
         
+        # Find indices of states that have been visited the fewest times
+        min_visits = np.min(self.state_visit_counts)
+        candidate_indices = np.where(self.state_visit_counts == min_visits)[0]
+
+        # Randomly choose a state from the least visited ones
+        candidate_index = np.random.choice(candidate_indices)
+        candidate_state = self.train_states[candidate_index]
+
+        # Clip the candidate state to stay within observation space limits
+        candidate_state = candidate_state.clip(
+            self.observation_space.low, self.observation_space.high
+        )
+
+        # Update the state and increase the visit count
         self.state = candidate_state
+        self.state_visit_counts[candidate_index] += 1  # Increment visit count
         self.past_states.append(self.state.copy())  # Save to past states
-        np.save('pass_state1', self.past_states)
+        np.save('pass_state_use', self.past_states)
+
         # Set the observation and previous state
         self.state_prev = self.state.copy()
         self.obs = self.state.copy()
@@ -314,8 +302,9 @@ class CartPole(gym.Env):
         # Render if "human" mode is active
         if self.render_mode == "human":
             self.render()
-       
+
         return self.state, self.obs
+
     
     def render(self):
         if self.render_mode is None:
@@ -331,7 +320,7 @@ class CartPole(gym.Env):
             from pygame import gfxdraw
         except ImportError:
             raise DependencyNotInstalled(
-                "pygame is not installed, run `pip install gym[classic_control]`"
+                "pygame is not installed, 'run pip install gym[classic_control]'"
             )
 
         if self.screen is None:
@@ -452,4 +441,51 @@ def reset(self,seed = None):
             self.render()
         return self.state, self.obs
 
+"""
+
+"""
+def reset(self, seed=None):
+       
+        if seed is not None:
+            np.random.seed(seed)
+
+        unique_state_found = False
+        while not unique_state_found:
+            # Generate a candidate state
+            candidate_state = np.array([
+
+                np.random.uniform(low=0, high=np.pi), # X[0]
+
+                np.random.uniform(low=2, high=8),      # X[1]
+
+                0,                                     # X[2]
+                    
+                0                                      # X[3]
+            ])
+
+            # Clip the candidate state to stay within observation space limits
+            candidate_state = candidate_state.clip(
+                self.observation_space.low, self.observation_space.high
+            )
+
+            # Check if candidate state is unique within the similarity threshold
+            unique_state_found = all(
+                np.linalg.norm(candidate_state - past_state) > self.similarity_threshold
+                for past_state in self.past_states
+            )
+
+        # Update the state once a unique state is found
+        
+        self.state = candidate_state
+        self.past_states.append(self.state.copy())  # Save to past states
+        np.save('pass_state1', self.past_states)
+        # Set the observation and previous state
+        self.state_prev = self.state.copy()
+        self.obs = self.state.copy()
+
+        # Render if "human" mode is active
+        if self.render_mode == "human":
+            self.render()
+       
+        return self.state, self.obs
 """

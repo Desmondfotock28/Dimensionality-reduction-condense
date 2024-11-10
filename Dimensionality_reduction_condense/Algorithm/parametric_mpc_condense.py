@@ -300,8 +300,8 @@ class MPCfunapprox(ParamMPCformulation):
             def cost(point):
                 diff = point - P_up
                 # Smooth constraint violation using the log-sum-exp formula
-                rho = 1000  # Scaling factor for the penalty
-                u = 1.0      # Smoothing parameter
+                rho = 1000  # Scaling factor for the penalty   before 1000
+                u = 10     # Smoothing parameter      1.0 before 
 
                 constraint_violation = rho * anp.sum(u * anp.log(1 + anp.exp((diff - 0.2) / u)) + u * anp.log(1 + anp.exp((-0.2 - diff) / u)))
              
