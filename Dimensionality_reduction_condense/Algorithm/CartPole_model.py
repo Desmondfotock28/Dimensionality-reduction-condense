@@ -70,7 +70,7 @@ class CartPole(gym.Env):
         self.similarity_threshold = 0.1  # Define an appropriate threshold (e.g., 0.1)
         
         # Load states and initialize visit counter
-        self.train_states = np.load('train_state1.npy')
+        self.train_states =  np.load('train_state_test1.npy')
         self.state_visit_counts = np.zeros(len(self.train_states)) 
 
         # Angle at which to fail the episode
@@ -160,8 +160,8 @@ class CartPole(gym.Env):
         sintheta = np.sin(theta)
         d11 = self.length*(self.masspole*sintheta*sintheta+ self.masscart)
         d22 =  self.masscart*sintheta*sintheta+ self.masscart
-        thetaacc = (1/d11)((self.total_mass)*self.gravity*sintheta-self.masspole*self.length*theta_dot*2*sintheta*costheta - costheta*action)
-        xacc = (1/d22)(-self.masspole*self.gravity*self.length*costheta*sintheta + self.masspole*self.length*theta_dot*2*sintheta + action)
+        thetaacc = (1/d11)*((self.total_mass)*self.gravity*sintheta-self.masspole*self.length*theta_dot*2*sintheta*costheta - costheta*action)
+        xacc = (1/d22)*(-self.masspole*self.gravity*self.length*costheta*sintheta + self.masspole*self.length*theta_dot*2*sintheta + action)
 
         if self.kinematics_integrator == "euler":
             x = x + self.tau * x_dot

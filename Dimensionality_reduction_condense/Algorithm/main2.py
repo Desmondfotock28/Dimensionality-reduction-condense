@@ -53,8 +53,10 @@ R = 1
 R = R * np.diag([0.001])
 
 
-T1_0=np.load('W_reduce0.npy')
-T2_0 = null_space(T1_0.T)
+
+T1_0 =np.load('T1_HessL.npy')
+T2_0 =np.load('T2_HessL.npy')
+#T2_0 = null_space(T1_0.T)
 
 K = np.array([[119.959032  ,  27.09347287,  27.10575672,  25.59835605]])
 policy_theta =[]
@@ -237,14 +239,14 @@ agent_params= {
             "lr": 1e-4,
             "tr": 0.2,
             "train_params": {
-                "iterations": 200,
+                "iterations": 50,
                 "batch_size": 32
             },
             "constrained_updates": True
         }
     }
-n_iterations = 200
-n_trains = 10
+n_iterations = 50
+n_trains = 20
 n_evals = 1
 n_steps = 300
 max_len_buffer = 500

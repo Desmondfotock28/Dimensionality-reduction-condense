@@ -145,8 +145,9 @@ xSS=  np.array([0, 0 , 0, 0])
 #T2_0 = null_space(T1_0.T)
 
 
-T1_0 =np.load('W_reduce0.npy')
-T2_0= T2_0 = null_space(T1_0.T)
+T1_0 =np.load('T1_HessL.npy')
+T2_0 =np.load('T2_HessL.npy')
+#T2_0= T2_0 = null_space(T1_0.T)
 nv = T1_0.shape[1]
 
 
@@ -175,13 +176,13 @@ agent_params= {
             "lr": 1e-4,
             "tr": 0.2,
             "train_params": {
-                "iterations":30,
+                "iterations":100,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 30
+n_iterations = 1000
 
 # Agent init
 agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_scheduler)
@@ -230,8 +231,8 @@ w  = np.array(w).reshape( (N *nu - nv ), 1 )
 
 plot_stats(stats)
    
-np.save('T1_train_reduce', T1)      
-np.save('T2_train_reduce', T2)
+np.save('T1_train_reduce1', T1)      
+np.save('T2_train_reduce1', T2)
 
 test_mpc_policy(env, agent)
 

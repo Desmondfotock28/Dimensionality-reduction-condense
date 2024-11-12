@@ -242,6 +242,11 @@ def stack_gain_matrix(N,K):
         block_matrix[i*nu:(i+1)*nu, i*nx:(i+1)*nx] = K
     return block_matrix
 
+def is_too_close(new_state, existing_states, threshold):
+    for state in existing_states:
+        if np.linalg.norm(new_state - state) < threshold:
+            return True
+    return False
  
 #Controller frequency and Prediction horizon
 Ts = 0.01    #sampling time in [s]
@@ -401,12 +406,16 @@ def Pi_opt_formulation():
 
 lbg_vcsd, ubg_vcsd, G_vcsd , pisolver = Pi_opt_formulation()
 
+
 #x0 =  np.array([np.pi, 1.0, 0, 0]) + np.random.uniform(low=-0.05, high=0.05, size=(4,))
 
 
-state = np.load('train_state1.npy')
 
-x0 = state[0]
+state = np.load('train_state_test.npy')
+use_state = np.load('train_state_test1.npy')
+# Save the filtered states to a new file
+
+x0 = use_state[8]
 
 
 def run_open_loop_mpc(x0, u0 , solver ):
@@ -438,12 +447,9 @@ xSS=  np.array([0, 0 , 0, 0])
 uSS = 0
 t_ol = linspace(0,tf , N+1)
 
-
 xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
-        
-plot_results(t_ol, xsol, u_ol.T, xSS, uSS, [1, 2])
-    
 
+plot_results(t_ol, xsol, u_ol.T, xSS, uSS, [1, 2])
 
 
 #condense run close loop 
@@ -500,8 +506,9 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
 print(x0)
 Ts = 0.01
 sim_time = 3
-x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
 
+x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
+ 
 #compute closed loop traj for first 100 initial state:
 #U_cl= []
 #X_init = []
@@ -526,8 +533,9 @@ plt.show()
 
 
 #T1=np.load('T1_trainGS.npy')
-T1=np.load('W_reduce1.npy')
-T2= null_space(T1.T)
+T1=np.load('T1_HessL.npy')
+T2=np.load('T2_HessL.npy')
+#T2= null_space(T1.T)
 
 #T1 =np.load('T1_train200.npy')
 #T2 = np.load('T2_train200.npy')
@@ -683,17 +691,17 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
         x_ol.append(x0)
 
          #compute u_fb
-        #u_fb = mtimes(K,x0)
+        u_fb = mtimes(K,x0)
 
-        #if x0[0]<= np.pi/3 and x0[0]>=-np.pi/3:
-            #act_n =  reshape(u_fb, 1, -1)
+        if x0[0]<= np.pi/3 and x0[0]>=-np.pi/3:
+            act_n =  reshape(u_fb, 1, -1)
                 
-        #else:
-            #act_n = Usol[(N-1)*nu:]
+        else:
+            act_n = Usol[(N-1)*nu:]
             
         #update u_tilda_k 
-        #u_tilda_k = np.vstack([Usol[nu:], act_n])
-        u_tilda_k = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
+        u_tilda_k = np.vstack([Usol[nu:], act_n])
+        #u_tilda_k = np.vstack([Usol[nu:], Usol[(N-1)*nu:]])
         
         u_tilda_k =vertcat(reshape(u_tilda_k, -1, 1))
         #update w_k 
@@ -713,7 +721,9 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
 
     return x_ol ,  u_cl , t, cost_fn
 
+
 x_ol_p ,  u_cl_p ,t_p , cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
+
 
 #U_cl_a= []
 
