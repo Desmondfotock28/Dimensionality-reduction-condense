@@ -70,8 +70,8 @@ class CartPole(gym.Env):
         self.similarity_threshold = 0.1  # Define an appropriate threshold (e.g., 0.1)
         
         # Load states and initialize visit counter
-        self.train_states =  np.load('train_state_test1.npy')
-        self.state_visit_counts = np.zeros(len(self.train_states)) 
+        self.train_states =  np.load('train_new.npy')
+        #self.state_visit_counts = np.zeros(len(self.train_states)) 
 
         # Angle at which to fail the episode
         self.theta_threshold_radians = 2 * math.pi
@@ -265,35 +265,24 @@ class CartPole(gym.Env):
   
 
     def reset(self, seed=None):
-
         """
-
-        Resets the state of the system and generates a unique state
-        that has not been previously encountered within a similarity threshold.
-
+        Resets the state of the system by randomly selecting a state 
+        from the set of initial states.
         """
         if seed is not None:
-            
             np.random.seed(seed)
         
-        # Find indices of states that have been visited the fewest times
-        min_visits = np.min(self.state_visit_counts)
-        candidate_indices = np.where(self.state_visit_counts == min_visits)[0]
-
-        # Randomly choose a state from the least visited ones
-        candidate_index = np.random.choice(candidate_indices)
+        # Randomly select a state from the set of initial states
+        candidate_index = np.random.choice(len(self.train_states))
         candidate_state = self.train_states[candidate_index]
 
         # Clip the candidate state to stay within observation space limits
-        candidate_state = candidate_state.clip(
-            self.observation_space.low, self.observation_space.high
-        )
+        candidate_state = candidate_state.clip(self.observation_space.low, self.observation_space.high)
 
-        # Update the state and increase the visit count
+        # Update the state
         self.state = candidate_state
-        self.state_visit_counts[candidate_index] += 1  # Increment visit count
         self.past_states.append(self.state.copy())  # Save to past states
-        np.save('pass_state_use', self.past_states)
+        np.save('pass_state_use.npy', self.past_states)  # Save periodically, if needed
 
         # Set the observation and previous state
         self.state_prev = self.state.copy()

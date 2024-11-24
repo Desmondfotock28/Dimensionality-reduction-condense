@@ -141,12 +141,12 @@ xSS=  np.array([0, 0 , 0, 0])
 
 
 
-#T1_0=np.load('T1_RS1.npy')
+#T1_0=np.load('W_reduce.npy')
 #T2_0 = null_space(T1_0.T)
 
 
-T1_0 =np.load('T1_HessL.npy')
-T2_0 =np.load('T2_HessL.npy')
+T1_0 =np.load('T1_HessL30.npy')
+T2_0 =np.load('T2_HessL30.npy')
 #T2_0= T2_0 = null_space(T1_0.T)
 nv = T1_0.shape[1]
 
@@ -173,17 +173,16 @@ agent_params= {
         "w": w_0,
         "eps": 0.25,
         "learning_params": {
-            "lr": 1e-4,
+            "lr": 1e-3,
             "tr": 0.2,
             "train_params": {
-                "iterations":100,
+                "iterations":1300,
                 "batch_size": 60
             }, 
             "constrained_updates": True
       }
     } 
-n_iterations = 1000
-
+n_iterations = 1300
 # Agent init
 agent = MPCfunapprox_ex(env,cost_model, agent_params,param,n_steps,exploration_scheduler)
 
@@ -201,13 +200,17 @@ print(f"Q function: {q_mpc}")
 #main loop 
 # Initialize a dictionary to store policy gradient loss and returns for each episode
 stats = {'TD Loss': [], 'Returns': []}
-
+U_open =[]
 for it in range(n_iterations):
     print(f"Iteration: {it}")
     # agent training
     agent.train()
+    U_opt = agent.learning_module.policy_theta
+    #U_open.append(U_opt )
+    #np.save('U_open_loop1',U_open)
     np.save('P_learnS',agent.P_learn)
     np.save('iteration', it)
+   
     print(f"rollout_return: {agent.learning_module.rollout_return}")
 
     stats['Returns'].append(agent.learning_module.rollout_return)
@@ -218,7 +221,7 @@ S = pcA.compute_sensitivity_matrix(U_opt)
 W ,nv_new = pcA.compute_active_subspace(S)
 np.save('U_optE_reduce', U_opt)
 np.save('S_reduce', S)
-np.save('W_reduce', W)
+np.save('W_reduce_train_new', W)
 
 
 
@@ -231,8 +234,8 @@ w  = np.array(w).reshape( (N *nu - nv ), 1 )
 
 plot_stats(stats)
    
-np.save('T1_train_reduce1', T1)      
-np.save('T2_train_reduce1', T2)
+np.save('T1_train_new', T1)      
+np.save('T2_train_new', T2)
 
 test_mpc_policy(env, agent)
 

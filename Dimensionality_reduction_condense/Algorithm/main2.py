@@ -54,15 +54,17 @@ R = R * np.diag([0.001])
 
 
 
-T1_0 =np.load('T1_HessL.npy')
-T2_0 =np.load('T2_HessL.npy')
+#T1_0 =np.load('T1_HessL.npy')
+#T2_0 =np.load('T2_HessL.npy')
 #T2_0 = null_space(T1_0.T)
 
 K = np.array([[119.959032  ,  27.09347287,  27.10575672,  25.59835605]])
 policy_theta =[]
-#T1_0=np.load('T1_newGram.npy')
-#T2_0 = null_space(T1_0.T)
+T1_0=np.load('W_reduce.npy')
+T2_0 = null_space(T1_0.T)
 
+#T1_0=np.load('T1_HessL30.npy')
+#T2_0=np.load('T2_HessL30.npy')
 nv = T1_0.shape[1]
 
 
@@ -239,14 +241,15 @@ agent_params= {
             "lr": 1e-4,
             "tr": 0.2,
             "train_params": {
-                "iterations": 50,
+                "iterations": 30,
                 "batch_size": 32
             },
             "constrained_updates": True
         }
     }
-n_iterations = 50
-n_trains = 20
+n_iterations = 30
+n_trains = 3 
+
 n_evals = 1
 n_steps = 300
 max_len_buffer = 500
@@ -306,14 +309,14 @@ T1 = np.array(T1).reshape(N*nu , nv , order='F')
 T2 = agent.Pf[2*nx + nu + (N *nu - nv):]
 T2 = np.array(T2).reshape(N*nu , (N *nu - nv), order='F')
 
-np.save('T1_train200_reduce.npy', T1)
-np.save('T2_train200_reduce.npy', T2)
+np.save('T1_train200_reduce30.npy', T1)
+np.save('T2_train200_reduce30.npy', T2)
 
 U_opt = np.array(policy_theta)
 np.save('U_optE_reduce2', U_opt)
 S = pcA.compute_sensitivity_matrix(U_opt)
 W ,nv_new = pcA.compute_active_subspace(S)
-np.save('W_reduce1', W)
+np.save('W_reduce30', W)
 
 #print(agent.P_learn)
 

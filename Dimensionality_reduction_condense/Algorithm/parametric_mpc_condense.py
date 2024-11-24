@@ -247,9 +247,9 @@ class MPCfunapprox(ParamMPCformulation):
         param_val = param_val if param_val is not None else self.P_learn
         if constrained_updates:
        
-            self.P_learn = self.Stiefel_param_update1(dJ , param_val, lr)
-            #self.P_learn = self.constraint_param_update(dJ, param_val)
-            #self.P_learn = self.gramm_schmidt()
+            #.P_learn = self.Stiefel_param_update1(dJ , param_val, lr)
+            self.P_learn = self.constraint_param_update(dJ, param_val)
+            self.P_learn = self.gramm_schmidt()
             self.compute_null_space()
         else:
             dP = -self.lr[0] * dJ    #need to check shape 
@@ -270,7 +270,6 @@ class MPCfunapprox(ParamMPCformulation):
         J_th = 0.5 * cvx.sum_squares(self.dP_th) + lr * self.dJ_th.T @ self.dP_th
         # J_up += l1 * cvx.norm(P_cost_next, 1) + l2 * cvx.norm(P_cost_next, 2)
         constraint = [self.dP_th <= tr, self.dP_th >= -tr]
-       
         self.update_step = cvx.Problem(cvx.Minimize(J_th), constraint)
         #
         #self.update_step = cvx.Problem(cvx.Minimize(J_th)))
@@ -290,7 +289,7 @@ class MPCfunapprox(ParamMPCformulation):
             P_up = P_up.reshape(self.N * self.action_dim, self.nv, order='F')
             Jac = Jac.reshape(self.N * self.action_dim, self.nv, order='F')
             n, k = P_up.shape  # Dimensions of the matrix
-            lr =  10*lr
+            #lr =  10*lr
             print("start RL update scheme")
 
             # Define the Stiefel manifold
@@ -317,11 +316,11 @@ class MPCfunapprox(ParamMPCformulation):
             problem = pymanopt.Problem(manifold=manifold, cost=cost)
 
             # Use the Steepest Descent optimizer with verbosity turned off
-            #optimizer = pymanopt.optimizers.SteepestDescent(verbosity=0)
+            optimizer = pymanopt.optimizers.SteepestDescent(verbosity=0)
 
-            #optimizer = pymanopt.optimizers.ConjugateGradient( beta_rule="PolakRibiere", orth_value=1e-5, verbosity=0)
+            #optimizer = pymanopt.optimizers.ConjugateGradient( beta_rule="PolakRibiere", verbosity=0)
 
-            optimizer =  pymanopt.optimizers.TrustRegions(verbosity=0)
+            #optimizer =  pymanopt.optimizers.TrustRegions(verbosity=0)
             
             # Solve the optimization problem
             result = optimizer.run(problem)

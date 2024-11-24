@@ -1,7 +1,7 @@
 import numpy as np
 
 # Parameters
-num_samples = 100
+num_samples = 150
 threshold = 0.1  # Define the distance threshold
 
 # Initialize an empty list to store the candidate states
@@ -29,5 +29,5 @@ while len(candidate_states) < num_samples:
 
 # Convert the list to a NumPy array for consistency
 candidate_states = np.array(candidate_states)
-np.save('train_state_test.npy',candidate_states)
+np.save('train.npy',candidate_states)
 print("Unique sampled candidate states:\n", candidate_states)

@@ -409,13 +409,14 @@ lbg_vcsd, ubg_vcsd, G_vcsd , pisolver = Pi_opt_formulation()
 
 #x0 =  np.array([np.pi, 1.0, 0, 0]) + np.random.uniform(low=-0.05, high=0.05, size=(4,))
 
+U_open = np.load('U_open_loop.npy')
+print(U_open.shape)
 
 
-state = np.load('train_state_test.npy')
-use_state = np.load('train_state_test1.npy')
+state = np.load('train.npy')
+state_new = np.load('train_new.npy')
 # Save the filtered states to a new file
-
-x0 = use_state[8]
+x0 = state[0]
 
 
 def run_open_loop_mpc(x0, u0 , solver ):
@@ -470,7 +471,7 @@ def run_closed_loop_mpc(x0, Ts, sim_time, solver):
     args_p = np.array([[x0]])
     args_p = vertcat(*args_p)
     cost_n = []
-    
+
     while  mpc_i < int(sim_time / Ts):
 
         args_p = x0
@@ -508,18 +509,6 @@ Ts = 0.01
 sim_time = 3
 
 x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
- 
-#compute closed loop traj for first 100 initial state:
-#U_cl= []
-#X_init = []
-#for k in range(100):
-    #x0 = state[k]
-    #x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
-   # X_init.append(x0)
-    #U_cl.append(u_cl)
-#np.save('U_cl', U_cl)
-#np.save('X_init',X_init)
-
 cost_n_np = [float(cost.full().flatten()) for cost in cost_nn]
 plt.figure(figsize=(10, 5))
 plt.plot(cost_n_np, label='Cost_n', marker='o')
@@ -532,13 +521,29 @@ plt.show()
 
 
 
-#T1=np.load('T1_trainGS.npy')
-T1=np.load('T1_HessL.npy')
-T2=np.load('T2_HessL.npy')
+    
+#compute closed loop traj for first 100 initial state:
+#U_cl_test= []
+#X_init = []
+#for k in range(len(use_state)):
+    #x0 = use_state[k]
+    #x_ol, u_cl, t, cost_nn  = run_closed_loop_mpc(x0, Ts, sim_time, pisolver)
+    #X_init.append(x0)
+    #U_cl_test.append(u_cl)
+#np.save('U_cl_test', U_cl_test)
+#np.save('X_init_test',X_init)
+
+
+
+#T1=np.load('W_reduce.npy')
+
+T1=np.load('T1_HessL30.npy')
+T2=np.load('T2_HessL30.npy')
+
 #T2= null_space(T1.T)
 
-#T1 =np.load('T1_train200.npy')
-#T2 = np.load('T2_train200.npy')
+#T1 = np.load('T1_train_reduce_30.npy')
+#T2 = np.load('T2_train_reduce_30.npy')
 
 nv = T1.shape[1]
 
@@ -655,6 +660,7 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
     v_st_0 = v_st_0.reshape(-1, 1)
     mu_st_0 = mu_st_0.reshape(-1, 1)
     x_goal =np.array([0, 0, 0,0])
+
     # Concatenate all three into one array
     P_init  = vertcat( 
             reshape(x0, -1, 1), 
@@ -665,7 +671,6 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
         P_init[:nx] = x0
         P_init[nx:] = w_k
         Opt_Vars_init = np.concatenate(( v_st_0, mu_st_0), axis=0)
-
         # Solve the optimization problem
         sol = solver(x0=Opt_Vars_init, p=P_init, lbg=lbg_vcsd_p, ubg=ubg_vcsd_p)
         x_opt_p = sol['x']
@@ -722,17 +727,33 @@ def run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, solver ):
     return x_ol ,  u_cl , t, cost_fn
 
 
-x_ol_p ,  u_cl_p ,t_p , cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
+#x_ol_p ,  u_cl_p ,t_p , cost_n  = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
 
+for k in range(len(state_new)):
+    x0= state_new[k]
+    xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
+    x_ol_p ,  u_cl_p ,t_p , cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
+    cost_p_np = [float(cost.full().flatten()) for cost in cost_n]
+    plt.figure(figsize=(10, 5))
+    plt.plot(cost_p_np, label='Cost_p', marker='o')
+    plt.xlabel('Iteration')
+    plt.ylabel('Cost')
+    plt.title('Nominal Cost')
+    plt.legend()
+    plt.grid(True)
+     # Save the plot as a file
+    filename = f'nominal_cost_plot_{k}.png'  # Create a unique filename for each plot
+    plt.savefig(filename, bbox_inches='tight')  # Save the plot
+    plt.close()  # Close the figure to free memory
 
 #U_cl_a= []
 
-#for k in range(100):
+#for k in range(len(state)):
     #x0 = state[k]
-   # xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
+    #xsol, u_ol, usol  = run_open_loop_mpc(x0, u0 , pisolver)
     #x_ol_p ,  u_cl_p ,t_p , cost_n = run_closed_loop_activesubspace_mpc(x0, u0, Ts, sim_time, pisolver_p)
-    #U_cl_a.append(u_cl_p)
-#np.save('U_cl_a', U_cl_a)
+   # U_cl_a.append(u_cl_p)
+#np.save('U_cl_a_test30_1', U_cl_a)
 
 
 #np.save('x_ol_p1_nv5', x_ol_p)
