@@ -1,4 +1,4 @@
-# Dimensionality Reduction  Reinforcement Learning 
+# Dimensionality Reduction with Reinforcement Learning 
 
 ## Introduction
 
